@@ -29,12 +29,14 @@ export const ChatWorkspace = () => {
       >
         <SettingsPanel
           isVisible={workspace.state.isSettingsOpen}
-          providerSettings={workspace.state.providerSettings}
+          providerSettings={workspace.state.providerDraftSettings}
           readingModeSettings={workspace.state.readingModeSettings}
           onClose={workspace.closeSettings}
           onProviderSelected={workspace.selectProvider}
           onApiKeyChanged={workspace.changeApiKey}
           onModelChanged={workspace.changeModel}
+          onSaveProviderSettings={workspace.saveProviderSettings}
+          hasUnsavedProviderChanges={workspace.state.hasUnsavedProviderChanges}
           onReadingModeToggled={workspace.toggleReadingMode}
           onReadingSchemeSelected={workspace.selectReadingScheme}
         />
@@ -42,7 +44,7 @@ export const ChatWorkspace = () => {
 
       <section className="chat-stage" aria-label="Chat workspace">
         <header className="chat-stage__header">
-          <h1>Branch Chat</h1>
+          <h1>Better Chat</h1>
         </header>
 
         <MessageList messages={workspace.state.messages} />

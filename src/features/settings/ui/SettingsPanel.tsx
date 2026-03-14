@@ -1,4 +1,5 @@
 import {
+  getProviderMetadata,
   providerCatalog,
   type ProviderId,
   type ProviderSettings,
@@ -17,6 +18,8 @@ interface SettingsPanelProps {
   readonly onProviderSelected: (providerId: ProviderId) => void
   readonly onApiKeyChanged: (providerId: ProviderId, apiKey: string) => void
   readonly onModelChanged: (providerId: ProviderId, model: string) => void
+  readonly onSaveProviderSettings: () => void
+  readonly hasUnsavedProviderChanges: boolean
   readonly onReadingModeToggled: () => void
   readonly onReadingSchemeSelected: (schemeId: ReadingSchemeId) => void
 }
@@ -29,6 +32,8 @@ export const SettingsPanel = ({
   onProviderSelected,
   onApiKeyChanged,
   onModelChanged,
+  onSaveProviderSettings,
+  hasUnsavedProviderChanges,
   onReadingModeToggled,
   onReadingSchemeSelected,
 }: SettingsPanelProps) => {
@@ -37,6 +42,7 @@ export const SettingsPanel = ({
   }
 
   const activeProviderId = providerSettings.activeProvider
+  const activeProvider = getProviderMetadata(activeProviderId)
   const activeProviderConfiguration =
     providerSettings.configurations[activeProviderId]
 
@@ -71,14 +77,19 @@ export const SettingsPanel = ({
 
       <label className="field-group" htmlFor="provider-model">
         <span>Model</span>
-        <input
+        <select
           id="provider-model"
-          type="text"
           value={activeProviderConfiguration.model}
           onChange={(event) =>
             onModelChanged(activeProviderId, event.target.value)
           }
-        />
+        >
+          {activeProvider.models.map((model) => (
+            <option key={model} value={model}>
+              {model}
+            </option>
+          ))}
+        </select>
       </label>
 
       <label className="field-group" htmlFor="provider-api-key">
@@ -93,6 +104,32 @@ export const SettingsPanel = ({
           placeholder="Paste provider key"
         />
       </label>
+
+      <div className="settings-panel__provider-actions">
+        <button
+          type="button"
+          className="primary-button"
+          aria-label="Save provider settings"
+          onClick={onSaveProviderSettings}
+          disabled={!hasUnsavedProviderChanges}
+        >
+          Save provider settings
+        </button>
+        <p className="settings-panel__provider-status" role="status">
+          {hasUnsavedProviderChanges
+            ? 'You have unsaved provider changes.'
+            : 'Provider settings are saved.'}
+        </p>
+      </div>
+
+      <section className="settings-panel__guidance" aria-label="Provider guidance">
+        <h3>{activeProvider.label} best practices</h3>
+        <ul>
+          {activeProvider.bestPractices.map((guidance) => (
+            <li key={guidance}>{guidance}</li>
+          ))}
+        </ul>
+      </section>
 
       <label className="toggle-field" htmlFor="reading-mode-toggle">
         <input

@@ -43,8 +43,14 @@ export class SendMessageUseCase {
 
       return createAssistantMessage(answer)
     } catch (error) {
+      const rawMessage = (error as Error).message
+      const normalizedMessage =
+        rawMessage === 'Failed to fetch'
+          ? `${providerMetadata.label} request was blocked by the browser or network. Confirm CORS support and API key restrictions.`
+          : rawMessage
+
       return createAssistantMessage(
-        `Could not reach ${providerMetadata.label}. ${(error as Error).message}`,
+        `Could not reach ${providerMetadata.label}. ${normalizedMessage}`,
       )
     }
   }

@@ -35,12 +35,14 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: transparent;
 }
 
 #root {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 button,
@@ -51,7 +53,8 @@ textarea {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: grid;
   grid-template-columns: 280px 1fr;
   background: var(--reading-bg);
@@ -166,7 +169,8 @@ textarea {
 .chat-stage {
   display: grid;
   grid-template-rows: auto 1fr auto;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .chat-stage__header {
@@ -319,6 +323,38 @@ textarea {
   z-index: 8;
 }
 
+.settings-panel__provider-actions {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.settings-panel__provider-status {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.settings-panel__guidance {
+  border: 1px solid #e5d7c5;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: #fffefb;
+}
+
+.settings-panel__guidance h3 {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.settings-panel__guidance ul {
+  margin: 0.45rem 0 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+}
+
 .settings-panel__header {
   display: flex;
   justify-content: space-between;
@@ -376,6 +412,6 @@ textarea {
   }
 
   .chat-stage {
-    min-height: calc(100vh - 100px);
+    height: calc(100vh - 100px);
   }
 }

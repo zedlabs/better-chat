@@ -32,6 +32,8 @@ interface ChatWorkspaceState {
   readonly isSettingsOpen: boolean
   readonly readingModeSettings: ReadingModeSettings
   readonly providerSettings: ProviderSettings
+  readonly providerDraftSettings: ProviderSettings
+  readonly hasUnsavedProviderChanges: boolean
   readonly history: ReadonlyArray<ConversationSummary>
   readonly messages: ReadonlyArray<ChatMessage>
   readonly composerValue: string
@@ -61,15 +63,20 @@ type ChatWorkspaceAction =
       readonly providerId: ProviderId
       readonly model: string
     }
+  | { readonly type: 'provider/saved' }
   | { readonly type: 'composer/changed'; readonly value: string }
   | { readonly type: 'message/sending-started'; readonly message: ChatMessage }
   | { readonly type: 'message/sending-finished'; readonly message: ChatMessage }
+
+const initialProviderSettings = createDefaultProviderSettings()
 
 const initialState: ChatWorkspaceState = {
   isSidebarCollapsed: false,
   isSettingsOpen: false,
   readingModeSettings: defaultReadingModeSettings,
-  providerSettings: createDefaultProviderSettings(),
+  providerSettings: initialProviderSettings,
+  providerDraftSettings: initialProviderSettings,
+  hasUnsavedProviderChanges: false,
   history: [
     {
       id: createUniqueId(),
@@ -79,12 +86,17 @@ const initialState: ChatWorkspaceState = {
   ],
   messages: [
     createAssistantMessage(
-      'Welcome to Branch Chat. Add your API key in Settings, then start the conversation.',
+      'Welcome to Better Chat. Add your API key in Settings, then start the conversation.',
     ),
   ],
   composerValue: '',
   isSending: false,
 }
+
+const areProviderSettingsEqual = (
+  left: ProviderSettings,
+  right: ProviderSettings,
+): boolean => JSON.stringify(left) === JSON.stringify(right)
 
 const reducer = (
   state: ChatWorkspaceState,
@@ -124,45 +136,72 @@ const reducer = (
         ),
       }
 
-    case 'provider/selected':
+    case 'provider/selected': {
+      const providerDraftSettings = setActiveProvider(
+        state.providerDraftSettings,
+        action.providerId,
+      )
+
       return {
         ...state,
-        providerSettings: setActiveProvider(state.providerSettings, action.providerId),
+        providerDraftSettings,
+        hasUnsavedProviderChanges: !areProviderSettingsEqual(
+          providerDraftSettings,
+          state.providerSettings,
+        ),
       }
+    }
 
     case 'provider/api-key-changed': {
       const currentProvider =
-        state.providerSettings.configurations[action.providerId]
+        state.providerDraftSettings.configurations[action.providerId]
+      const providerDraftSettings = updateProviderConfiguration(
+        state.providerDraftSettings,
+        action.providerId,
+        {
+          ...currentProvider,
+          apiKey: action.apiKey,
+        },
+      )
 
       return {
         ...state,
-        providerSettings: updateProviderConfiguration(
+        providerDraftSettings,
+        hasUnsavedProviderChanges: !areProviderSettingsEqual(
+          providerDraftSettings,
           state.providerSettings,
-          action.providerId,
-          {
-            ...currentProvider,
-            apiKey: action.apiKey,
-          },
         ),
       }
     }
 
     case 'provider/model-changed': {
       const currentProvider =
-        state.providerSettings.configurations[action.providerId]
+        state.providerDraftSettings.configurations[action.providerId]
+      const providerDraftSettings = updateProviderConfiguration(
+        state.providerDraftSettings,
+        action.providerId,
+        {
+          ...currentProvider,
+          model: action.model,
+        },
+      )
 
       return {
         ...state,
-        providerSettings: updateProviderConfiguration(
+        providerDraftSettings,
+        hasUnsavedProviderChanges: !areProviderSettingsEqual(
+          providerDraftSettings,
           state.providerSettings,
-          action.providerId,
-          {
-            ...currentProvider,
-            model: action.model,
-          },
         ),
       }
     }
+
+    case 'provider/saved':
+      return {
+        ...state,
+        providerSettings: state.providerDraftSettings,
+        hasUnsavedProviderChanges: false,
+      }
 
     case 'composer/changed':
       return {
@@ -200,6 +239,7 @@ interface UseChatWorkspaceResult {
   readonly selectProvider: (providerId: ProviderId) => void
   readonly changeApiKey: (providerId: ProviderId, apiKey: string) => void
   readonly changeModel: (providerId: ProviderId, model: string) => void
+  readonly saveProviderSettings: () => void
   readonly changeComposerValue: (value: string) => void
   readonly sendMessage: () => Promise<void>
 }
@@ -247,6 +287,10 @@ export const useChatWorkspace = (
       providerId,
       model,
     })
+  }, [])
+
+  const saveProviderSettings = useCallback(() => {
+    dispatch({ type: 'provider/saved' })
   }, [])
 
   const changeComposerValue = useCallback((value: string) => {
@@ -298,6 +342,7 @@ export const useChatWorkspace = (
     selectProvider,
     changeApiKey,
     changeModel,
+    saveProviderSettings,
     changeComposerValue,
     sendMessage,
   }

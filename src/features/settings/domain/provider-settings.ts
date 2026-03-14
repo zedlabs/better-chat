@@ -6,6 +6,8 @@ export interface ProviderMetadata {
   readonly id: ProviderId
   readonly label: string
   readonly defaultModel: string
+  readonly models: ReadonlyArray<string>
+  readonly bestPractices: ReadonlyArray<string>
 }
 
 export interface ProviderConfiguration {
@@ -22,17 +24,39 @@ const providerMetadataById: Record<ProviderId, ProviderMetadata> = {
   openai: {
     id: 'openai',
     label: 'OpenAI',
-    defaultModel: 'gpt-4o-mini',
+    defaultModel: 'gpt-5.4',
+    models: ['gpt-5.4', 'gpt-5.4-pro', 'gpt-5-mini', 'gpt-5-nano'],
+    bestPractices: [
+      'Create restricted API keys and never commit keys to source control.',
+      'Use retries with exponential backoff for 429 and transient 5xx errors.',
+      'Start with smaller GPT-5 variants for latency-sensitive and cost-sensitive flows.',
+    ],
   },
   anthropic: {
     id: 'anthropic',
     label: 'Anthropic',
-    defaultModel: 'claude-3-5-sonnet-latest',
+    defaultModel: 'claude-sonnet-4-6',
+    models: ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
+    bestPractices: [
+      'Scope keys to the minimum permissions and rotate credentials regularly.',
+      'Handle rate limits with bounded retries and idempotent request design.',
+      'Use concise, explicit prompts with clear output constraints for stability.',
+    ],
   },
   gemini: {
     id: 'gemini',
     label: 'Gemini',
-    defaultModel: 'gemini-2.0-flash',
+    defaultModel: 'gemini-3-flash-preview',
+    models: [
+      'gemini-3.1-pro-preview',
+      'gemini-3-flash-preview',
+      'gemini-3.1-flash-lite-preview',
+    ],
+    bestPractices: [
+      'Apply key restrictions by API and referrer or app identity where possible.',
+      'Implement jittered exponential backoff for quota and transient failures.',
+      'Prefer Flash-tier models for lower-latency interactive chat experiences.',
+    ],
   },
 }
 
