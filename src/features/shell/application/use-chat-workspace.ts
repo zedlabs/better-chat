@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from 'react'
+import { useCallback, useEffect, useReducer } from 'react'
 import { SendMessageUseCase } from '../../chat/application/send-message-use-case'
 import {
   createAssistantMessage,
@@ -20,6 +20,10 @@ import {
   type ProviderSettings,
 } from '../../settings/domain/provider-settings'
 import { createUniqueId } from '../../../shared/domain/unique-id'
+import {
+  loadChatWorkspaceState,
+  saveChatWorkspaceState,
+} from './chat-workspace-storage'
 
 interface ConversationSummary {
   readonly id: string
@@ -72,37 +76,59 @@ type ChatWorkspaceAction =
   | { readonly type: 'message/sending-started'; readonly message: ChatMessage }
   | { readonly type: 'message/sending-finished'; readonly message: ChatMessage }
 
-const initialProviderSettings = createDefaultProviderSettings()
-
 const createWelcomeMessage = (): ChatMessage =>
   createAssistantMessage(
     'Welcome to Better Chat. Add your API key in Settings, then start the conversation.',
   )
 
-const initialConversationId = createUniqueId()
-const initialConversationMessages = [createWelcomeMessage()]
+const createDefaultState = (): ChatWorkspaceState => {
+  const initialProviderSettings = createDefaultProviderSettings()
+  const initialConversationId = createUniqueId()
+  const initialConversationMessages = [createWelcomeMessage()]
 
-const initialState: ChatWorkspaceState = {
-  isSidebarCollapsed: false,
-  isSettingsOpen: false,
-  readingModeSettings: defaultReadingModeSettings,
-  providerSettings: initialProviderSettings,
-  providerDraftSettings: initialProviderSettings,
-  hasUnsavedProviderChanges: false,
-  history: [
-    {
-      id: initialConversationId,
-      title: 'Thread 1',
-      updatedAtLabel: 'Just now',
+  return {
+    isSidebarCollapsed: false,
+    isSettingsOpen: false,
+    readingModeSettings: defaultReadingModeSettings,
+    providerSettings: initialProviderSettings,
+    providerDraftSettings: initialProviderSettings,
+    hasUnsavedProviderChanges: false,
+    history: [
+      {
+        id: initialConversationId,
+        title: 'Thread 1',
+        updatedAtLabel: 'Just now',
+      },
+    ],
+    activeConversationId: initialConversationId,
+    conversationMessages: {
+      [initialConversationId]: initialConversationMessages,
     },
-  ],
-  activeConversationId: initialConversationId,
-  conversationMessages: {
-    [initialConversationId]: initialConversationMessages,
-  },
-  messages: initialConversationMessages,
-  composerValue: '',
-  isSending: false,
+    messages: initialConversationMessages,
+    composerValue: '',
+    isSending: false,
+  }
+}
+
+const createInitialState = (): ChatWorkspaceState => {
+  const persistedState = loadChatWorkspaceState()
+
+  if (!persistedState) {
+    return createDefaultState()
+  }
+
+  return {
+    ...createDefaultState(),
+    readingModeSettings: persistedState.readingModeSettings,
+    providerSettings: persistedState.providerSettings,
+    providerDraftSettings: persistedState.providerSettings,
+    history: persistedState.history,
+    activeConversationId: persistedState.activeConversationId,
+    conversationMessages: persistedState.conversationMessages,
+    messages:
+      persistedState.conversationMessages[persistedState.activeConversationId] ??
+      [createWelcomeMessage()],
+  }
 }
 
 const areProviderSettingsEqual = (
@@ -337,7 +363,23 @@ interface UseChatWorkspaceResult {
 export const useChatWorkspace = (
   sendMessageUseCase: SendMessageUseCase,
 ): UseChatWorkspaceResult => {
-  const [state, dispatch] = useReducer(reducer, initialState)
+  const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
+
+  useEffect(() => {
+    saveChatWorkspaceState({
+      readingModeSettings: state.readingModeSettings,
+      providerSettings: state.providerSettings,
+      history: state.history,
+      activeConversationId: state.activeConversationId,
+      conversationMessages: state.conversationMessages,
+    })
+  }, [
+    state.activeConversationId,
+    state.conversationMessages,
+    state.history,
+    state.providerSettings,
+    state.readingModeSettings,
+  ])
 
   const toggleSidebar = useCallback(() => {
     dispatch({ type: 'sidebar/toggled' })

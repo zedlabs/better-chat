@@ -1,9 +1,14 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { clearChatWorkspaceState } from './features/shell/application/chat-workspace-storage'
 
 describe('App shell', () => {
+  beforeEach(() => {
+    clearChatWorkspaceState()
+  })
+
   it('renders the main chat workspace with history sidebar', () => {
     render(<App />)
 
@@ -153,5 +158,49 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: /Thread one/ }))
     expect(within(conversation).getByText('Thread one')).toBeInTheDocument()
     expect(within(conversation).queryByText('Thread two')).not.toBeInTheDocument()
+  })
+
+  it('rehydrates threads and active conversation from local storage', async () => {
+    const user = userEvent.setup()
+    const firstMount = render(<App />)
+
+    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Thread one')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+    await user.click(screen.getByRole('button', { name: 'New thread' }))
+    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Thread two')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    const conversation = screen.getByRole('region', { name: 'Conversation' })
+    expect(within(conversation).getByText('Thread two')).toBeInTheDocument()
+
+    firstMount.unmount()
+    render(<App />)
+
+    expect(screen.getByRole('button', { name: /Thread one/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Thread two/ })).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Conversation' })).getByText('Thread two')).toBeInTheDocument()
+  })
+
+  it('rehydrates saved provider settings and reading mode', async () => {
+    const user = userEvent.setup()
+    const firstMount = render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open settings' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Provider' }), 'anthropic')
+    await user.type(screen.getByLabelText('API key'), 'anthropic-test-key')
+    await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Enable reading mode' }))
+    await user.click(screen.getByRole('button', { name: 'Close settings' }))
+
+    expect(screen.getByTestId('app-shell')).toHaveAttribute('data-reading-mode', 'true')
+
+    firstMount.unmount()
+    render(<App />)
+
+    expect(screen.getByTestId('app-shell')).toHaveAttribute('data-reading-mode', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'Open settings' }))
+    expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveValue('anthropic')
+    expect(screen.getByLabelText('API key')).toHaveValue('anthropic-test-key')
   })
 })
