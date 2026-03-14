@@ -43,6 +43,13 @@ export class SendMessageUseCase {
 
       return createAssistantMessage(answer)
     } catch (error) {
+      if (
+        (error instanceof DOMException && error.name === 'AbortError') ||
+        (error instanceof Error && error.name === 'AbortError')
+      ) {
+        throw error
+      }
+
       const rawMessage = (error as Error).message
       const normalizedMessage =
         rawMessage === 'Failed to fetch'

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -202,5 +202,49 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: 'Open settings' }))
     expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveValue('anthropic')
     expect(screen.getByLabelText('API key')).toHaveValue('anthropic-test-key')
+  })
+
+  it('cancels an in-flight provider request', async () => {
+    const user = userEvent.setup()
+    const observedSignals: AbortSignal[] = []
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_, init) => {
+      const requestSignal = (init as RequestInit | undefined)?.signal as
+        | AbortSignal
+        | undefined
+
+      if (requestSignal) {
+        observedSignals.push(requestSignal)
+      }
+
+      return new Promise<Response>((_, reject) => {
+        requestSignal?.addEventListener(
+          'abort',
+          () => {
+            reject(new DOMException('The operation was aborted.', 'AbortError'))
+          },
+          { once: true },
+        )
+      })
+    })
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open settings' }))
+    await user.type(screen.getByLabelText('API key'), 'sk-live-long-running')
+    await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
+    await user.click(screen.getByRole('button', { name: 'Close settings' }))
+
+    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Long request')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(screen.getByRole('button', { name: 'Cancel response' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel response' }))
+
+    await waitFor(() => {
+      expect(observedSignals.at(0)?.aborted).toBe(true)
+      expect(screen.getByText('Response cancelled.')).toBeInTheDocument()
+    })
   })
 })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer } from 'react'
+import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { SendMessageUseCase } from '../../chat/application/send-message-use-case'
 import {
   createAssistantMessage,
@@ -74,6 +74,7 @@ type ChatWorkspaceAction =
   | { readonly type: 'conversation/selected'; readonly conversationId: string }
   | { readonly type: 'composer/changed'; readonly value: string }
   | { readonly type: 'message/sending-started'; readonly message: ChatMessage }
+  | { readonly type: 'message/sending-cancelled'; readonly message: ChatMessage }
   | { readonly type: 'message/sending-finished'; readonly message: ChatMessage }
 
 const createWelcomeMessage = (): ChatMessage =>
@@ -324,6 +325,24 @@ const reducer = (
       }
     }
 
+    case 'message/sending-cancelled': {
+      if (!state.isSending) {
+        return state
+      }
+
+      const nextMessages = [...state.messages, action.message]
+
+      return {
+        ...state,
+        isSending: false,
+        messages: nextMessages,
+        conversationMessages: {
+          ...state.conversationMessages,
+          [state.activeConversationId]: nextMessages,
+        },
+      }
+    }
+
     case 'message/sending-finished': {
       const nextMessages = [...state.messages, action.message]
 
@@ -357,6 +376,7 @@ interface UseChatWorkspaceResult {
   readonly createConversation: () => void
   readonly selectConversation: (conversationId: string) => void
   readonly changeComposerValue: (value: string) => void
+  readonly cancelSendMessage: () => void
   readonly sendMessage: () => Promise<void>
 }
 
@@ -364,6 +384,7 @@ export const useChatWorkspace = (
   sendMessageUseCase: SendMessageUseCase,
 ): UseChatWorkspaceResult => {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
+  const activeRequestAbortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     saveChatWorkspaceState({
@@ -437,6 +458,10 @@ export const useChatWorkspace = (
     dispatch({ type: 'composer/changed', value })
   }, [])
 
+  const cancelSendMessage = useCallback(() => {
+    activeRequestAbortControllerRef.current?.abort()
+  }, [])
+
   const sendMessage = useCallback(async () => {
     if (state.isSending) {
       return
@@ -449,21 +474,40 @@ export const useChatWorkspace = (
     }
 
     const userMessage = createUserMessage(trimmedMessage)
+    const abortController = new AbortController()
+    activeRequestAbortControllerRef.current = abortController
 
     dispatch({
       type: 'message/sending-started',
       message: userMessage,
     })
 
-    const assistantMessage = await sendMessageUseCase.execute({
-      history: [...state.messages, userMessage],
-      providerSettings: state.providerSettings,
-    })
+    try {
+      const assistantMessage = await sendMessageUseCase.execute({
+        history: [...state.messages, userMessage],
+        providerSettings: state.providerSettings,
+        signal: abortController.signal,
+      })
 
-    dispatch({
-      type: 'message/sending-finished',
-      message: assistantMessage,
-    })
+      dispatch({
+        type: 'message/sending-finished',
+        message: assistantMessage,
+      })
+    } catch (error) {
+      if (
+        (error instanceof DOMException && error.name === 'AbortError') ||
+        (error instanceof Error && error.name === 'AbortError')
+      ) {
+        dispatch({
+          type: 'message/sending-cancelled',
+          message: createAssistantMessage('Response cancelled.'),
+        })
+      }
+    } finally {
+      if (activeRequestAbortControllerRef.current === abortController) {
+        activeRequestAbortControllerRef.current = null
+      }
+    }
   }, [
     sendMessageUseCase,
     state.composerValue,
@@ -486,6 +530,7 @@ export const useChatWorkspace = (
     createConversation,
     selectConversation,
     changeComposerValue,
+    cancelSendMessage,
     sendMessage,
   }
 }

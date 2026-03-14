@@ -5,6 +5,7 @@ interface ChatComposerProps {
   readonly isSending: boolean
   readonly onChange: (value: string) => void
   readonly onSend: () => Promise<void>
+  readonly onCancel: () => void
 }
 
 export const ChatComposer = ({
@@ -12,6 +13,7 @@ export const ChatComposer = ({
   isSending,
   onChange,
   onSend,
+  onCancel,
 }: ChatComposerProps) => {
   const canSend = value.trim().length > 0 && !isSending
 
@@ -34,6 +36,16 @@ export const ChatComposer = ({
         placeholder="Ask anything..."
       />
       <div className="chat-composer__footer">
+        {isSending && (
+          <button
+            type="button"
+            className="secondary-button"
+            aria-label="Cancel response"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        )}
         <button
           type="submit"
           className="primary-button"

@@ -57,6 +57,7 @@ export const ChatWorkspace = () => {
           isSending={workspace.state.isSending}
           onChange={workspace.changeComposerValue}
           onSend={workspace.sendMessage}
+          onCancel={workspace.cancelSendMessage}
         />
       </section>
     </div>
