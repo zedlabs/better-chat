@@ -184,6 +184,23 @@ textarea {
   font-size: clamp(1.2rem, 1.5vw + 0.9rem, 1.7rem);
 }
 
+.chat-stage__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.chat-stage__regenerate {
+  width: auto;
+}
+
+.chat-stage__status {
+  margin: 0.55rem 0 0;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+}
+
 .message-list {
   padding: 1.2rem 1rem;
   overflow: auto;
@@ -255,7 +272,13 @@ textarea {
   width: min(100%, 860px);
   margin: 0 auto;
   display: flex;
+  align-items: center;
+  gap: 0.55rem;
   justify-content: flex-end;
+}
+
+.chat-composer__cancel {
+  width: auto;
 }
 
 .primary-button,

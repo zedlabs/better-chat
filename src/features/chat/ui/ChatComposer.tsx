@@ -39,7 +39,7 @@ export const ChatComposer = ({
         {isSending && (
           <button
             type="button"
-            className="secondary-button"
+            className="secondary-button chat-composer__cancel"
             aria-label="Cancel response"
             onClick={onCancel}
           >

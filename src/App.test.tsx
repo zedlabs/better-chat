@@ -6,6 +6,7 @@ import { clearChatWorkspaceState } from './features/shell/application/chat-works
 
 describe('App shell', () => {
   beforeEach(() => {
+    vi.restoreAllMocks()
     clearChatWorkspaceState()
   })
 
@@ -92,7 +93,9 @@ describe('App shell', () => {
     await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'first')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
-    expect(screen.getByText(/Add an API key for OpenAI/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText(/Add an API key for OpenAI/i)).toBeInTheDocument()
+    })
     expect(fetchSpy).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: 'Open settings' }))
@@ -102,8 +105,10 @@ describe('App shell', () => {
     await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'second')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
-    expect(fetchSpy).toHaveBeenCalled()
-    expect(screen.getByText('Saved key works')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalled()
+      expect(screen.getByText('Saved key works')).toBeInTheDocument()
+    })
   })
 
   it('shows BYOK guidance when sending without an API key', async () => {
@@ -115,7 +120,9 @@ describe('App shell', () => {
 
     const conversation = screen.getByRole('region', { name: 'Conversation' })
     expect(within(conversation).getByText('Hello there')).toBeInTheDocument()
-    expect(screen.getByText(/Add an API key for OpenAI/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText(/Add an API key for OpenAI/i)).toBeInTheDocument()
+    })
   })
 
   it('creates a new thread and focuses it', async () => {
@@ -245,6 +252,139 @@ describe('App shell', () => {
     await waitFor(() => {
       expect(observedSignals.at(0)?.aborted).toBe(true)
       expect(screen.getByText('Response cancelled.')).toBeInTheDocument()
+    })
+  })
+
+  it('retries transient provider failures before succeeding', async () => {
+    const user = userEvent.setup()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { message: 'Service unavailable' } }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: 'Recovered after retry' } }],
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+      )
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open settings' }))
+    await user.type(screen.getByLabelText('API key'), 'sk-retry-test')
+    await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
+    await user.click(screen.getByRole('button', { name: 'Close settings' }))
+
+    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Please recover')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+      expect(screen.getByText('Recovered after retry')).toBeInTheDocument()
+    })
+  })
+
+  it('regenerates the last assistant response', async () => {
+    const user = userEvent.setup()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+    fetchSpy
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: 'First answer' } }],
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: 'Improved answer' } }],
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+      )
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open settings' }))
+    await user.type(screen.getByLabelText('API key'), 'sk-regenerate')
+    await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
+    await user.click(screen.getByRole('button', { name: 'Close settings' }))
+
+    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Explain this')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('First answer')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Regenerate response' }))
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+      expect(screen.getByText('Improved answer')).toBeInTheDocument()
+      expect(screen.queryByText('First answer')).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows a responding status while streaming assistant text', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content:
+                  'Streaming response from provider with multiple chunks for smoother rendering.',
+              },
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    )
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open settings' }))
+    await user.type(screen.getByLabelText('API key'), 'sk-streaming')
+    await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
+    await user.click(screen.getByRole('button', { name: 'Close settings' }))
+
+    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Stream this')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(screen.getByText('Assistant is responding...')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.queryByText('Assistant is responding...')).not.toBeInTheDocument()
+      expect(
+        screen.getByText(
+          'Streaming response from provider with multiple chunks for smoother rendering.',
+        ),
+      ).toBeInTheDocument()
     })
   })
 })

@@ -47,7 +47,23 @@ export const ChatWorkspace = () => {
 
       <section className="chat-stage" aria-label="Chat workspace">
         <header className="chat-stage__header">
-          <h1>Better Chat</h1>
+          <div className="chat-stage__title-row">
+            <h1>Better Chat</h1>
+            <button
+              type="button"
+              className="secondary-button chat-stage__regenerate"
+              aria-label="Regenerate response"
+              onClick={workspace.regenerateLastResponse}
+              disabled={!workspace.canRegenerateLastResponse}
+            >
+              Regenerate
+            </button>
+          </div>
+          {workspace.state.isSending && (
+            <p className="chat-stage__status" role="status">
+              Assistant is responding...
+            </p>
+          )}
         </header>
 
         <MessageList messages={workspace.state.messages} />

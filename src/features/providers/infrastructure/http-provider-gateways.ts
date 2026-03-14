@@ -6,11 +6,18 @@ import {
   openAiHttpStrategy,
   type HttpProviderStrategy,
 } from './provider-http-strategies'
+import { executeWithResilience } from './request-resilience'
+
+const retryableStatusCodes = new Set([408, 409, 425, 429, 500, 502, 503, 504])
 
 const createHttpGateway = <TPayload>(strategy: HttpProviderStrategy<TPayload>): ChatGateway => ({
   async complete(request: ChatGatewayRequest): Promise<string> {
     const { url, init } = strategy.createRequest(request)
-    const response = await fetch(url, init)
+    const response = await executeWithResilience({
+      operation: (signal) => fetch(url, { ...init, signal }),
+      shouldRetry: (result) => !result.ok && retryableStatusCodes.has(result.status),
+      signal: request.signal,
+    })
     const payload = await parseResponse<TPayload>(response)
     const content = strategy.extractContent(payload)
 

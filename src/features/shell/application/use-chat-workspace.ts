@@ -24,6 +24,7 @@ import {
   loadChatWorkspaceState,
   saveChatWorkspaceState,
 } from './chat-workspace-storage'
+import { streamAssistantResponse } from './assistant-response-stream'
 
 interface ConversationSummary {
   readonly id: string
@@ -74,8 +75,18 @@ type ChatWorkspaceAction =
   | { readonly type: 'conversation/selected'; readonly conversationId: string }
   | { readonly type: 'composer/changed'; readonly value: string }
   | { readonly type: 'message/sending-started'; readonly message: ChatMessage }
+  | {
+      readonly type: 'message/regeneration-started'
+      readonly history: ReadonlyArray<ChatMessage>
+    }
+  | { readonly type: 'message/assistant-stream-started'; readonly message: ChatMessage }
+  | {
+      readonly type: 'message/assistant-stream-updated'
+      readonly messageId: string
+      readonly content: string
+    }
   | { readonly type: 'message/sending-cancelled'; readonly message: ChatMessage }
-  | { readonly type: 'message/sending-finished'; readonly message: ChatMessage }
+  | { readonly type: 'message/sending-finished' }
 
 const createWelcomeMessage = (): ChatMessage =>
   createAssistantMessage(
@@ -157,6 +168,26 @@ const renameThreadFromFirstUserMessage = (
       updatedAtLabel: 'Just now',
     }
   })
+
+const buildRegenerationHistory = (
+  messages: ReadonlyArray<ChatMessage>,
+): ReadonlyArray<ChatMessage> | null => {
+  if (messages.length < 2) {
+    return null
+  }
+
+  const lastMessage = messages.at(-1)
+  if (!lastMessage || lastMessage.role !== 'assistant') {
+    return null
+  }
+
+  const historyWithoutLastAssistant = messages.slice(0, -1)
+  const hasUserPrompt = historyWithoutLastAssistant.some(
+    (message) => message.role === 'user',
+  )
+
+  return hasUserPrompt ? historyWithoutLastAssistant : null
+}
 
 const reducer = (
   state: ChatWorkspaceState,
@@ -325,6 +356,50 @@ const reducer = (
       }
     }
 
+    case 'message/regeneration-started':
+      return {
+        ...state,
+        isSending: true,
+        messages: action.history,
+        conversationMessages: {
+          ...state.conversationMessages,
+          [state.activeConversationId]: action.history,
+        },
+      }
+
+    case 'message/assistant-stream-started': {
+      const nextMessages = [...state.messages, action.message]
+
+      return {
+        ...state,
+        messages: nextMessages,
+        conversationMessages: {
+          ...state.conversationMessages,
+          [state.activeConversationId]: nextMessages,
+        },
+      }
+    }
+
+    case 'message/assistant-stream-updated': {
+      const nextMessages = state.messages.map((message) =>
+        message.id === action.messageId
+          ? {
+              ...message,
+              content: action.content,
+            }
+          : message,
+      )
+
+      return {
+        ...state,
+        messages: nextMessages,
+        conversationMessages: {
+          ...state.conversationMessages,
+          [state.activeConversationId]: nextMessages,
+        },
+      }
+    }
+
     case 'message/sending-cancelled': {
       if (!state.isSending) {
         return state
@@ -343,19 +418,11 @@ const reducer = (
       }
     }
 
-    case 'message/sending-finished': {
-      const nextMessages = [...state.messages, action.message]
-
+    case 'message/sending-finished':
       return {
         ...state,
         isSending: false,
-        messages: nextMessages,
-        conversationMessages: {
-          ...state.conversationMessages,
-          [state.activeConversationId]: nextMessages,
-        },
       }
-    }
 
     default:
       return state
@@ -377,6 +444,8 @@ interface UseChatWorkspaceResult {
   readonly selectConversation: (conversationId: string) => void
   readonly changeComposerValue: (value: string) => void
   readonly cancelSendMessage: () => void
+  readonly canRegenerateLastResponse: boolean
+  readonly regenerateLastResponse: () => Promise<void>
   readonly sendMessage: () => Promise<void>
 }
 
@@ -462,6 +531,74 @@ export const useChatWorkspace = (
     activeRequestAbortControllerRef.current?.abort()
   }, [])
 
+  const streamAssistantMessage = useCallback(
+    async (assistantMessage: ChatMessage, signal: AbortSignal) => {
+      const placeholderMessage: ChatMessage = {
+        ...assistantMessage,
+        content: '',
+      }
+
+      dispatch({
+        type: 'message/assistant-stream-started',
+        message: placeholderMessage,
+      })
+
+      await streamAssistantResponse({
+        text: assistantMessage.content,
+        signal,
+        onChunk: (content) => {
+          dispatch({
+            type: 'message/assistant-stream-updated',
+            messageId: assistantMessage.id,
+            content,
+          })
+        },
+      })
+    },
+    [],
+  )
+
+  const requestAssistantMessage = useCallback(
+    async (history: ReadonlyArray<ChatMessage>, abortController: AbortController) => {
+      const assistantMessage = await sendMessageUseCase.execute({
+        history,
+        providerSettings: state.providerSettings,
+        signal: abortController.signal,
+      })
+
+      await streamAssistantMessage(assistantMessage, abortController.signal)
+
+      dispatch({ type: 'message/sending-finished' })
+    },
+    [sendMessageUseCase, state.providerSettings, streamAssistantMessage],
+  )
+
+  const runWithAbortController = useCallback(
+    async (operation: (abortController: AbortController) => Promise<void>) => {
+      const abortController = new AbortController()
+      activeRequestAbortControllerRef.current = abortController
+
+      try {
+        await operation(abortController)
+      } catch (error) {
+        if (
+          (error instanceof DOMException && error.name === 'AbortError') ||
+          (error instanceof Error && error.name === 'AbortError')
+        ) {
+          dispatch({
+            type: 'message/sending-cancelled',
+            message: createAssistantMessage('Response cancelled.'),
+          })
+        }
+      } finally {
+        if (activeRequestAbortControllerRef.current === abortController) {
+          activeRequestAbortControllerRef.current = null
+        }
+      }
+    },
+    [],
+  )
+
   const sendMessage = useCallback(async () => {
     if (state.isSending) {
       return
@@ -474,47 +611,46 @@ export const useChatWorkspace = (
     }
 
     const userMessage = createUserMessage(trimmedMessage)
-    const abortController = new AbortController()
-    activeRequestAbortControllerRef.current = abortController
+    const history = [...state.messages, userMessage]
 
     dispatch({
       type: 'message/sending-started',
       message: userMessage,
     })
 
-    try {
-      const assistantMessage = await sendMessageUseCase.execute({
-        history: [...state.messages, userMessage],
-        providerSettings: state.providerSettings,
-        signal: abortController.signal,
-      })
-
-      dispatch({
-        type: 'message/sending-finished',
-        message: assistantMessage,
-      })
-    } catch (error) {
-      if (
-        (error instanceof DOMException && error.name === 'AbortError') ||
-        (error instanceof Error && error.name === 'AbortError')
-      ) {
-        dispatch({
-          type: 'message/sending-cancelled',
-          message: createAssistantMessage('Response cancelled.'),
-        })
-      }
-    } finally {
-      if (activeRequestAbortControllerRef.current === abortController) {
-        activeRequestAbortControllerRef.current = null
-      }
-    }
+    await runWithAbortController(async (abortController) => {
+      await requestAssistantMessage(history, abortController)
+    })
   }, [
-    sendMessageUseCase,
     state.composerValue,
     state.isSending,
     state.messages,
-    state.providerSettings,
+    requestAssistantMessage,
+    runWithAbortController,
   ])
+
+  const canRegenerateLastResponse =
+    !state.isSending && buildRegenerationHistory(state.messages) !== null
+
+  const regenerateLastResponse = useCallback(async () => {
+    if (state.isSending) {
+      return
+    }
+
+    const history = buildRegenerationHistory(state.messages)
+    if (!history) {
+      return
+    }
+
+    dispatch({
+      type: 'message/regeneration-started',
+      history,
+    })
+
+    await runWithAbortController(async (abortController) => {
+      await requestAssistantMessage(history, abortController)
+    })
+  }, [state.isSending, state.messages, runWithAbortController, requestAssistantMessage])
 
   return {
     state,
@@ -531,6 +667,8 @@ export const useChatWorkspace = (
     selectConversation,
     changeComposerValue,
     cancelSendMessage,
+    canRegenerateLastResponse,
+    regenerateLastResponse,
     sendMessage,
   }
 }
