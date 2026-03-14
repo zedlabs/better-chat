@@ -24,7 +24,6 @@ import {
   loadChatWorkspaceState,
   saveChatWorkspaceState,
 } from './chat-workspace-storage'
-import { streamAssistantResponse } from './assistant-response-stream'
 
 interface ConversationSummary {
   readonly id: string
@@ -532,10 +531,15 @@ export const useChatWorkspace = (
   }, [])
 
   const streamAssistantMessage = useCallback(
-    async (assistantMessage: ChatMessage, signal: AbortSignal) => {
+    async (
+      buildAssistantMessage: (onContent: (content: string) => void) => Promise<ChatMessage>,
+    ) => {
+      const assistantMessageId = createUniqueId()
       const placeholderMessage: ChatMessage = {
-        ...assistantMessage,
+        id: assistantMessageId,
+        role: 'assistant',
         content: '',
+        createdAtIso: new Date().toISOString(),
       }
 
       dispatch({
@@ -543,16 +547,18 @@ export const useChatWorkspace = (
         message: placeholderMessage,
       })
 
-      await streamAssistantResponse({
-        text: assistantMessage.content,
-        signal,
-        onChunk: (content) => {
-          dispatch({
-            type: 'message/assistant-stream-updated',
-            messageId: assistantMessage.id,
-            content,
-          })
-        },
+      const assistantMessage = await buildAssistantMessage((content) => {
+        dispatch({
+          type: 'message/assistant-stream-updated',
+          messageId: assistantMessageId,
+          content,
+        })
+      })
+
+      dispatch({
+        type: 'message/assistant-stream-updated',
+        messageId: assistantMessageId,
+        content: assistantMessage.content,
       })
     },
     [],
@@ -560,13 +566,14 @@ export const useChatWorkspace = (
 
   const requestAssistantMessage = useCallback(
     async (history: ReadonlyArray<ChatMessage>, abortController: AbortController) => {
-      const assistantMessage = await sendMessageUseCase.execute({
-        history,
-        providerSettings: state.providerSettings,
-        signal: abortController.signal,
-      })
-
-      await streamAssistantMessage(assistantMessage, abortController.signal)
+      await streamAssistantMessage((onContent) =>
+        sendMessageUseCase.executeStreaming({
+          history,
+          providerSettings: state.providerSettings,
+          signal: abortController.signal,
+          onContent,
+        }),
+      )
 
       dispatch({ type: 'message/sending-finished' })
     },

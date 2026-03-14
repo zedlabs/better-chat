@@ -10,6 +10,10 @@ export interface ChatGatewayRequest {
 
 export interface ChatGateway {
   complete(request: ChatGatewayRequest): Promise<string>
+  stream?(
+    request: ChatGatewayRequest,
+    onContent: (content: string) => void,
+  ): Promise<string>
 }
 
 export interface ProviderGatewayRegistry {

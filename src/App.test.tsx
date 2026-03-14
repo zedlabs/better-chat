@@ -347,23 +347,30 @@ describe('App shell', () => {
 
   it('shows a responding status while streaming assistant text', async () => {
     const user = userEvent.setup()
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          choices: [
-            {
-              message: {
-                content:
-                  'Streaming response from provider with multiple chunks for smoother rendering.',
-              },
-            },
-          ],
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(
+              new Response(
+                JSON.stringify({
+                  choices: [
+                    {
+                      message: {
+                        content:
+                          'Streaming response from provider with multiple chunks for smoother rendering.',
+                      },
+                    },
+                  ],
+                }),
+                {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' },
+                },
+              ),
+            )
+          }, 120)
         }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
     )
 
     render(<App />)
@@ -386,5 +393,59 @@ describe('App shell', () => {
         ),
       ).toBeInTheDocument()
     })
+  })
+
+  it('streams Gemini responses from provider SSE endpoint', async () => {
+    const user = userEvent.setup()
+    const encoder = new TextEncoder()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(
+            encoder.encode(
+              'data: {"candidates":[{"content":{"parts":[{"text":"Hel"}]}}]}\n\n',
+            ),
+          )
+
+          setTimeout(() => {
+            controller.enqueue(
+              encoder.encode(
+                'data: {"candidates":[{"content":{"parts":[{"text":"lo"}]}}]}\n\n',
+              ),
+            )
+            controller.close()
+          }, 25)
+        },
+      })
+
+      return Promise.resolve(
+        new Response(stream, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      )
+    })
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open settings' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Provider' }), 'gemini')
+    await user.type(screen.getByLabelText('API key'), 'gemini-stream-key')
+    await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
+    await user.click(screen.getByRole('button', { name: 'Close settings' }))
+
+    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Say hello')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Hel')).toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Hello')).toBeInTheDocument()
+    })
+
+    const requestUrl = String(fetchSpy.mock.calls[0]?.[0] ?? '')
+    expect(requestUrl).toContain(':streamGenerateContent')
   })
 })

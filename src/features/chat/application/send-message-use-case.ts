@@ -14,6 +14,10 @@ interface SendMessageInput {
   readonly signal?: AbortSignal
 }
 
+interface SendMessageStreamingInput extends SendMessageInput {
+  readonly onContent: (content: string) => void
+}
+
 export class SendMessageUseCase {
   private readonly providerGatewayRegistry: ProviderGatewayRegistry
 
@@ -22,6 +26,15 @@ export class SendMessageUseCase {
   }
 
   async execute(input: SendMessageInput): Promise<ChatMessage> {
+    return this.executeStreaming({
+      ...input,
+      onContent: () => {
+        // no-op for non-streaming callers
+      },
+    })
+  }
+
+  async executeStreaming(input: SendMessageStreamingInput): Promise<ChatMessage> {
     const providerId = input.providerSettings.activeProvider
     const providerMetadata = getProviderMetadata(providerId)
     const providerConfiguration = input.providerSettings.configurations[providerId]
@@ -34,12 +47,19 @@ export class SendMessageUseCase {
 
     try {
       const gateway = this.providerGatewayRegistry.resolve(providerId)
-      const answer = await gateway.complete({
+      const request = {
         messages: input.history,
         apiKey: providerConfiguration.apiKey,
         model: providerConfiguration.model,
         signal: input.signal,
-      })
+      }
+      const answer = gateway.stream
+        ? await gateway.stream(request, input.onContent)
+        : await gateway.complete(request)
+
+      if (!gateway.stream) {
+        input.onContent(answer)
+      }
 
       return createAssistantMessage(answer)
     } catch (error) {

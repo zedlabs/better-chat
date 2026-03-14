@@ -25,7 +25,7 @@ interface AnthropicResponse {
   }>
 }
 
-interface GeminiResponse {
+export interface GeminiResponse {
   readonly candidates?: Array<{
     readonly content?: {
       readonly parts?: Array<{
@@ -113,10 +113,11 @@ export const anthropicHttpStrategy: HttpProviderStrategy<AnthropicResponse> = {
 export const geminiHttpStrategy: HttpProviderStrategy<GeminiResponse> = {
   id: 'gemini',
   createRequest: (request) => ({
-    url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(request.model)}:generateContent?key=${encodeURIComponent(request.apiKey)}`,
+    url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(request.model)}:generateContent`,
     init: {
       method: 'POST',
       headers: {
+        'x-goog-api-key': request.apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
