@@ -9,7 +9,10 @@ interface ConversationSummary {
 interface HistorySidebarProps {
   readonly isCollapsed: boolean
   readonly history: ReadonlyArray<ConversationSummary>
+  readonly activeConversationId: string
   readonly onToggleSidebar: () => void
+  readonly onCreateThread: () => void
+  readonly onSelectThread: (conversationId: string) => void
   readonly onOpenSettings: () => void
   readonly children?: ReactNode
 }
@@ -17,7 +20,10 @@ interface HistorySidebarProps {
 export const HistorySidebar = ({
   isCollapsed,
   history,
+  activeConversationId,
   onToggleSidebar,
+  onCreateThread,
+  onSelectThread,
   onOpenSettings,
   children,
 }: HistorySidebarProps) => (
@@ -43,7 +49,12 @@ export const HistorySidebar = ({
       <ol className="history-list">
         {history.map((thread) => (
           <li key={thread.id} className="history-list__item">
-            <button type="button" className="history-list__button">
+            <button
+              type="button"
+              className="history-list__button"
+              aria-current={thread.id === activeConversationId ? 'true' : 'false'}
+              onClick={() => onSelectThread(thread.id)}
+            >
               <span className="history-list__title">{thread.title}</span>
               <span className="history-list__time">{thread.updatedAtLabel}</span>
             </button>
@@ -53,6 +64,14 @@ export const HistorySidebar = ({
     )}
 
     <div className="history-sidebar__footer">
+      <button
+        type="button"
+        className="primary-button"
+        aria-label="New thread"
+        onClick={onCreateThread}
+      >
+        {isCollapsed ? '+' : 'New thread'}
+      </button>
       <button
         type="button"
         className="secondary-button"

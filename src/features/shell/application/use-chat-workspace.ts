@@ -35,6 +35,8 @@ interface ChatWorkspaceState {
   readonly providerDraftSettings: ProviderSettings
   readonly hasUnsavedProviderChanges: boolean
   readonly history: ReadonlyArray<ConversationSummary>
+  readonly activeConversationId: string
+  readonly conversationMessages: Readonly<Record<string, ReadonlyArray<ChatMessage>>>
   readonly messages: ReadonlyArray<ChatMessage>
   readonly composerValue: string
   readonly isSending: boolean
@@ -64,11 +66,21 @@ type ChatWorkspaceAction =
       readonly model: string
     }
   | { readonly type: 'provider/saved' }
+  | { readonly type: 'conversation/created' }
+  | { readonly type: 'conversation/selected'; readonly conversationId: string }
   | { readonly type: 'composer/changed'; readonly value: string }
   | { readonly type: 'message/sending-started'; readonly message: ChatMessage }
   | { readonly type: 'message/sending-finished'; readonly message: ChatMessage }
 
 const initialProviderSettings = createDefaultProviderSettings()
+
+const createWelcomeMessage = (): ChatMessage =>
+  createAssistantMessage(
+    'Welcome to Better Chat. Add your API key in Settings, then start the conversation.',
+  )
+
+const initialConversationId = createUniqueId()
+const initialConversationMessages = [createWelcomeMessage()]
 
 const initialState: ChatWorkspaceState = {
   isSidebarCollapsed: false,
@@ -79,16 +91,16 @@ const initialState: ChatWorkspaceState = {
   hasUnsavedProviderChanges: false,
   history: [
     {
-      id: createUniqueId(),
-      title: 'Welcome thread',
+      id: initialConversationId,
+      title: 'Thread 1',
       updatedAtLabel: 'Just now',
     },
   ],
-  messages: [
-    createAssistantMessage(
-      'Welcome to Better Chat. Add your API key in Settings, then start the conversation.',
-    ),
-  ],
+  activeConversationId: initialConversationId,
+  conversationMessages: {
+    [initialConversationId]: initialConversationMessages,
+  },
+  messages: initialConversationMessages,
   composerValue: '',
   isSending: false,
 }
@@ -97,6 +109,27 @@ const areProviderSettingsEqual = (
   left: ProviderSettings,
   right: ProviderSettings,
 ): boolean => JSON.stringify(left) === JSON.stringify(right)
+
+const renameThreadFromFirstUserMessage = (
+  history: ReadonlyArray<ConversationSummary>,
+  activeConversationId: string,
+  content: string,
+): ReadonlyArray<ConversationSummary> =>
+  history.map((conversation) => {
+    if (conversation.id !== activeConversationId) {
+      return conversation
+    }
+
+    if (conversation.title !== 'Thread 1' && !conversation.title.startsWith('Thread ')) {
+      return conversation
+    }
+
+    return {
+      ...conversation,
+      title: content.slice(0, 36),
+      updatedAtLabel: 'Just now',
+    }
+  })
 
 const reducer = (
   state: ChatWorkspaceState,
@@ -203,26 +236,81 @@ const reducer = (
         hasUnsavedProviderChanges: false,
       }
 
+    case 'conversation/created': {
+      const conversationId = createUniqueId()
+      const conversationCount = state.history.length + 1
+      const welcomeMessage = createWelcomeMessage()
+
+      return {
+        ...state,
+        history: [
+          ...state.history,
+          {
+            id: conversationId,
+            title: `Thread ${conversationCount}`,
+            updatedAtLabel: 'Just now',
+          },
+        ],
+        activeConversationId: conversationId,
+        conversationMessages: {
+          ...state.conversationMessages,
+          [conversationId]: [welcomeMessage],
+        },
+        messages: [welcomeMessage],
+        composerValue: '',
+      }
+    }
+
+    case 'conversation/selected': {
+      const selectedConversationMessages =
+        state.conversationMessages[action.conversationId] ?? []
+
+      return {
+        ...state,
+        activeConversationId: action.conversationId,
+        messages: selectedConversationMessages,
+      }
+    }
+
     case 'composer/changed':
       return {
         ...state,
         composerValue: action.value,
       }
 
-    case 'message/sending-started':
+    case 'message/sending-started': {
+      const nextMessages = [...state.messages, action.message]
+
       return {
         ...state,
         composerValue: '',
         isSending: true,
-        messages: [...state.messages, action.message],
+        messages: nextMessages,
+        history: renameThreadFromFirstUserMessage(
+          state.history,
+          state.activeConversationId,
+          action.message.content,
+        ),
+        conversationMessages: {
+          ...state.conversationMessages,
+          [state.activeConversationId]: nextMessages,
+        },
       }
+    }
 
-    case 'message/sending-finished':
+    case 'message/sending-finished': {
+      const nextMessages = [...state.messages, action.message]
+
       return {
         ...state,
         isSending: false,
-        messages: [...state.messages, action.message],
+        messages: nextMessages,
+        conversationMessages: {
+          ...state.conversationMessages,
+          [state.activeConversationId]: nextMessages,
+        },
       }
+    }
 
     default:
       return state
@@ -240,6 +328,8 @@ interface UseChatWorkspaceResult {
   readonly changeApiKey: (providerId: ProviderId, apiKey: string) => void
   readonly changeModel: (providerId: ProviderId, model: string) => void
   readonly saveProviderSettings: () => void
+  readonly createConversation: () => void
+  readonly selectConversation: (conversationId: string) => void
   readonly changeComposerValue: (value: string) => void
   readonly sendMessage: () => Promise<void>
 }
@@ -293,6 +383,14 @@ export const useChatWorkspace = (
     dispatch({ type: 'provider/saved' })
   }, [])
 
+  const createConversation = useCallback(() => {
+    dispatch({ type: 'conversation/created' })
+  }, [])
+
+  const selectConversation = useCallback((conversationId: string) => {
+    dispatch({ type: 'conversation/selected', conversationId })
+  }, [])
+
   const changeComposerValue = useCallback((value: string) => {
     dispatch({ type: 'composer/changed', value })
   }, [])
@@ -343,6 +441,8 @@ export const useChatWorkspace = (
     changeApiKey,
     changeModel,
     saveProviderSettings,
+    createConversation,
+    selectConversation,
     changeComposerValue,
     sendMessage,
   }

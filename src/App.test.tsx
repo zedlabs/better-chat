@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -108,7 +108,50 @@ describe('App shell', () => {
     await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Hello there')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
-    expect(screen.getByText('Hello there')).toBeInTheDocument()
+    const conversation = screen.getByRole('region', { name: 'Conversation' })
+    expect(within(conversation).getByText('Hello there')).toBeInTheDocument()
     expect(screen.getByText(/Add an API key for OpenAI/i)).toBeInTheDocument()
+  })
+
+  it('creates a new thread and focuses it', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'New thread' }))
+
+    expect(screen.getAllByRole('button', { name: /Thread \d/ })).toHaveLength(2)
+    expect(screen.getByRole('button', { name: /Thread 2/ })).toHaveAttribute(
+      'aria-current',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: /Thread 1/ })).toHaveAttribute(
+      'aria-current',
+      'false',
+    )
+    expect(
+      screen.getByText(
+        'Welcome to Better Chat. Add your API key in Settings, then start the conversation.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('restores each thread messages when switching threads', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Thread one')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+    const conversation = screen.getByRole('region', { name: 'Conversation' })
+    expect(within(conversation).getByText('Thread one')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'New thread' }))
+    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Thread two')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+    expect(within(conversation).getByText('Thread two')).toBeInTheDocument()
+    expect(within(conversation).queryByText('Thread one')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Thread one/ }))
+    expect(within(conversation).getByText('Thread one')).toBeInTheDocument()
+    expect(within(conversation).queryByText('Thread two')).not.toBeInTheDocument()
   })
 })

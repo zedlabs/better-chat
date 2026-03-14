@@ -24,7 +24,10 @@ export const ChatWorkspace = () => {
       <HistorySidebar
         isCollapsed={workspace.state.isSidebarCollapsed}
         history={workspace.state.history}
+        activeConversationId={workspace.state.activeConversationId}
         onToggleSidebar={workspace.toggleSidebar}
+        onCreateThread={workspace.createConversation}
+        onSelectThread={workspace.selectConversation}
         onOpenSettings={workspace.openSettings}
       >
         <SettingsPanel
