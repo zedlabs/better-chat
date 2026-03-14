@@ -244,6 +244,46 @@ textarea {
   padding-inline: 0.2rem;
 }
 
+.message-inline-wrap {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.message-inline__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.message-inline__model {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.message-inline__copy {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  border-radius: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.message-inline__copy svg {
+  width: 13px;
+  height: 13px;
+}
+
+.message-inline__copy:hover {
+  color: var(--accent-strong);
+}
+
 .chat-composer {
   border-top: 1px solid var(--surface-border);
   padding: 1rem;

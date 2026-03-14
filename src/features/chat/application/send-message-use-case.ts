@@ -42,6 +42,7 @@ export class SendMessageUseCase {
     if (providerConfiguration.apiKey.trim().length === 0) {
       return createAssistantMessage(
         `Add an API key for ${providerMetadata.label} in Settings to send real messages.`,
+        providerConfiguration.model,
       )
     }
 
@@ -61,7 +62,7 @@ export class SendMessageUseCase {
         input.onContent(answer)
       }
 
-      return createAssistantMessage(answer)
+      return createAssistantMessage(answer, providerConfiguration.model)
     } catch (error) {
       if (
         (error instanceof DOMException && error.name === 'AbortError') ||
@@ -78,6 +79,7 @@ export class SendMessageUseCase {
 
       return createAssistantMessage(
         `Could not reach ${providerMetadata.label}. ${normalizedMessage}`,
+        providerConfiguration.model,
       )
     }
   }

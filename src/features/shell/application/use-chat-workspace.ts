@@ -84,6 +84,12 @@ type ChatWorkspaceAction =
       readonly messageId: string
       readonly content: string
     }
+  | {
+      readonly type: 'message/assistant-stream-finished'
+      readonly messageId: string
+      readonly content: string
+      readonly generatedModel?: string
+    }
   | { readonly type: 'message/sending-cancelled'; readonly message: ChatMessage }
   | { readonly type: 'message/sending-finished' }
 
@@ -399,6 +405,28 @@ const reducer = (
       }
     }
 
+    case 'message/assistant-stream-finished': {
+      const nextMessages = state.messages.map((message) =>
+        message.id === action.messageId
+          ? {
+              ...message,
+              content: action.content,
+              generatedModel: action.generatedModel,
+              isStreaming: false,
+            }
+          : message,
+      )
+
+      return {
+        ...state,
+        messages: nextMessages,
+        conversationMessages: {
+          ...state.conversationMessages,
+          [state.activeConversationId]: nextMessages,
+        },
+      }
+    }
+
     case 'message/sending-cancelled': {
       if (!state.isSending) {
         return state
@@ -540,6 +568,7 @@ export const useChatWorkspace = (
         role: 'assistant',
         content: '',
         createdAtIso: new Date().toISOString(),
+        isStreaming: true,
       }
 
       dispatch({
@@ -556,9 +585,10 @@ export const useChatWorkspace = (
       })
 
       dispatch({
-        type: 'message/assistant-stream-updated',
+        type: 'message/assistant-stream-finished',
         messageId: assistantMessageId,
         content: assistantMessage.content,
+        generatedModel: assistantMessage.generatedModel,
       })
     },
     [],
