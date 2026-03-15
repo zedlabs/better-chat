@@ -17,13 +17,15 @@ This project focuses on those gaps with a local-first UX and no backend lock-in.
 ## Core Features
 
 - BYOK support for OpenAI, Anthropic, and Gemini
-- Provider-native streaming (SSE) with retry/timeout safeguards
+- Provider-native streaming (SSE)
+- All chat history is stored locally, never leaves your computer
+- No bloated dependencies or frameworks
 - Threaded workspace with persistence across reloads
 - Branch dialog chat from text selections (`+ Create New Branch Here`)
 - Branching context workflow: turn any highlighted passage into a focused side conversation without losing your main thread
 - Global system prompt in Settings
-- Markdown rendering with sanitization
-- Reading mode profiles that can hide top bar, sidebar, composer, and user messages for distraction-free review
+- Smart Markdown rendering 
+- Reading mode profiles that can hide the top bar, sidebar, composer, and user messages for distraction-free review with reading-optimized colour schemes
 
 ## Why branching and reading mode matter
 
