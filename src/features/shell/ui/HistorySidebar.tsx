@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { BookOpen, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react'
+import { BookOpen, ChevronLeft, ChevronRight, Plus, Settings, X } from 'lucide-react'
 import { ReadingModeDialog } from '../../settings/ui/ReadingModeDialog'
 import type { ReadingModeSettings, ReadingSchemeId } from '../../settings/domain/reading-mode-settings'
 
@@ -11,6 +11,7 @@ interface ConversationSummary {
 
 interface HistorySidebarProps {
   readonly isCollapsed: boolean
+  readonly isMobile: boolean
   readonly history: ReadonlyArray<ConversationSummary>
   readonly activeConversationId: string
   readonly onToggleSidebar: () => void
@@ -32,6 +33,7 @@ interface HistorySidebarProps {
 
 export const HistorySidebar = ({
   isCollapsed,
+  isMobile,
   history,
   activeConversationId,
   onToggleSidebar,
@@ -60,10 +62,10 @@ export const HistorySidebar = ({
       <button
         type="button"
         className="icon-button history-sidebar__toggle"
-        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-label={isCollapsed ? 'Expand sidebar' : isMobile ? 'Close sidebar' : 'Collapse sidebar'}
         onClick={onToggleSidebar}
       >
-        {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        {isCollapsed ? <ChevronRight size={16} /> : isMobile ? <X size={16} /> : <ChevronLeft size={16} />}
       </button>
       {!isCollapsed && <h2 className="history-sidebar__title">Threads</h2>}
     </div>

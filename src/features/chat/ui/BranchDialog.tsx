@@ -135,7 +135,11 @@ export const BranchDialog = ({
                   <p className="message-bubble message-bubble--user">{message.content}</p>
                 ) : (
                   <div className="branch-dialog__assistant">
-                    <AssistantMarkdown content={message.content} />
+                    {message.isStreaming ? (
+                      <p className="message-inline message-inline--streaming">{message.content}</p>
+                    ) : (
+                      <AssistantMarkdown content={message.content} />
+                    )}
                     {message.isStreaming && <span className="branch-dialog__streaming">Streaming…</span>}
                   </div>
                 )}

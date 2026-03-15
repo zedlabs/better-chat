@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { BookOpen, Settings } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { BookOpen, PanelLeft, Settings } from 'lucide-react'
 import { SendMessageUseCase } from '../../chat/application/send-message-use-case'
 import { useMessageBranches } from '../../chat/application/use-message-branches'
 import { BranchDialog } from '../../chat/ui/BranchDialog'
@@ -18,6 +18,8 @@ export const ChatWorkspace = () => {
   )
   const workspace = useChatWorkspace(sendMessageUseCase)
   const [isReadingModeDialogOpen, setIsReadingModeDialogOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const hasAutoCollapsedForMobileRef = useRef(false)
   const branches = useMessageBranches(
     workspace.state.activeConversationId,
     sendMessageUseCase,
@@ -30,6 +32,33 @@ export const ChatWorkspace = () => {
   const hideSidebar = isReading && rm.hideSidebar
   const hideComposer = isReading && rm.hideComposer
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 920px)')
+
+    const applyState = () => {
+      setIsMobile(mediaQuery.matches)
+    }
+
+    applyState()
+    mediaQuery.addEventListener('change', applyState)
+
+    return () => {
+      mediaQuery.removeEventListener('change', applyState)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isMobile) {
+      hasAutoCollapsedForMobileRef.current = false
+      return
+    }
+
+    if (!workspace.state.isSidebarCollapsed && !hasAutoCollapsedForMobileRef.current) {
+      workspace.toggleSidebar()
+      hasAutoCollapsedForMobileRef.current = true
+    }
+  }, [isMobile, workspace.state.isSidebarCollapsed, workspace.toggleSidebar])
+
   return (
     <div
       className="app-shell"
@@ -37,11 +66,13 @@ export const ChatWorkspace = () => {
       data-reading-mode={isReading ? 'true' : 'false'}
       data-reading-scheme={rm.schemeId}
       data-hide-sidebar={hideSidebar ? 'true' : 'false'}
+      data-sidebar-collapsed={workspace.state.isSidebarCollapsed ? 'true' : 'false'}
       data-hide-topbar={hideTopBar ? 'true' : 'false'}
       data-hide-composer={hideComposer ? 'true' : 'false'}
     >
       <HistorySidebar
         isCollapsed={workspace.state.isSidebarCollapsed}
+        isMobile={isMobile}
         history={workspace.state.history}
         activeConversationId={workspace.state.activeConversationId}
         onToggleSidebar={workspace.toggleSidebar}
@@ -76,6 +107,16 @@ export const ChatWorkspace = () => {
         {!hideTopBar && (
           <header className="chat-stage__header">
             <div className="chat-stage__title-row">
+              {isMobile && workspace.state.isSidebarCollapsed && !hideSidebar && (
+                <button
+                  type="button"
+                  className="icon-button chat-stage__sidebar-open"
+                  aria-label="Open sidebar"
+                  onClick={workspace.toggleSidebar}
+                >
+                  <PanelLeft size={16} />
+                </button>
+              )}
               <h1>BetterChat</h1>
               {workspace.state.isSending && (
                 <p className="chat-stage__status" role="status">

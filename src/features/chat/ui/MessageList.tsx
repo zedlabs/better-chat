@@ -186,7 +186,11 @@ export const MessageList = ({
               </div>
             ) : (
               <div className="message-inline-wrap">
-                <AssistantMarkdown content={message.content} />
+                {message.isStreaming ? (
+                  <p className="message-inline message-inline--streaming">{message.content}</p>
+                ) : (
+                  <AssistantMarkdown content={message.content} />
+                )}
                 {!message.isStreaming && message.generatedModel && (
                   <div className="message-inline__footer">
                     <span className="message-inline__model">

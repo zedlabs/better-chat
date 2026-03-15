@@ -203,7 +203,7 @@ describe('MessageList', () => {
           makeMessage(
             '2',
             'assistant',
-            '**Bold**\n\n- One\n\n```ts\nconst x = 1\n```\n<script>alert(1)</script>',
+            '**Bold**\n\n- One\n\n```ts\nconst x = 1\n```\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n$E=mc^2$\n\n<script>alert(1)</script>',
             'gpt-5.4',
           ),
         ]}
@@ -216,7 +216,9 @@ describe('MessageList', () => {
 
     expect(screen.getByText('Bold').tagName).toBe('STRONG')
     expect(screen.getByText('One').tagName).toBe('LI')
-    expect(screen.getByText('const x = 1')).toBeInTheDocument()
+    expect(container.querySelector('code')?.textContent).toContain('const x = 1')
+    expect(screen.getByRole('table')).toBeInTheDocument()
+    expect(container.querySelector('.katex')).not.toBeNull()
     expect(container.querySelector('script')).toBeNull()
   })
 

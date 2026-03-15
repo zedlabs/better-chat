@@ -64,16 +64,13 @@ export const openAiHttpStrategy: HttpProviderStrategy<OpenAiResponse> = {
     const content = payload.choices?.at(0)?.message?.content
 
     if (typeof content === 'string' && content.trim().length > 0) {
-      return content.trim()
+      return content
     }
 
     if (Array.isArray(content)) {
-      const composedContent = content
-        .map((part) => part.text?.trim() ?? '')
-        .join(' ')
-        .trim()
+      const composedContent = content.map((part) => part.text ?? '').join('')
 
-      if (composedContent.length > 0) {
+      if (composedContent.trim().length > 0) {
         return composedContent
       }
     }
@@ -106,9 +103,9 @@ export const anthropicHttpStrategy: HttpProviderStrategy<AnthropicResponse> = {
   }),
   extractContent: (payload) => {
     const textBlock = payload.content?.find((block) => block.type === 'text')
-    const content = textBlock?.text?.trim()
+    const content = textBlock?.text
 
-    return content && content.length > 0 ? content : null
+    return content && content.trim().length > 0 ? content : null
   },
   emptyResponseMessage: 'Anthropic returned an empty response.',
 }
@@ -141,11 +138,10 @@ export const geminiHttpStrategy: HttpProviderStrategy<GeminiResponse> = {
     const content = payload.candidates
       ?.at(0)
       ?.content?.parts
-      ?.map((part) => part.text?.trim() ?? '')
-      .join(' ')
-      .trim()
+      ?.map((part) => part.text ?? '')
+      .join('')
 
-    return content && content.length > 0 ? content : null
+    return content && content.trim().length > 0 ? content : null
   },
   emptyResponseMessage: 'Gemini returned an empty response.',
 }
