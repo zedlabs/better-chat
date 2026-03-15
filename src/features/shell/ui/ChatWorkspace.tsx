@@ -63,6 +63,7 @@ export const ChatWorkspace = () => {
     <div
       className="app-shell"
       data-testid="app-shell"
+      data-app-theme={workspace.state.appThemeId}
       data-reading-mode={isReading ? 'true' : 'false'}
       data-reading-scheme={rm.schemeId}
       data-hide-sidebar={hideSidebar ? 'true' : 'false'}
@@ -78,6 +79,7 @@ export const ChatWorkspace = () => {
         onToggleSidebar={workspace.toggleSidebar}
         onCreateThread={workspace.createConversation}
         onSelectThread={workspace.selectConversation}
+        onDeleteThread={workspace.deleteConversation}
         onOpenSettings={workspace.openSettings}
         readingModeSettings={rm}
         isReadingModeDialogOpen={isReadingModeDialogOpen}
@@ -93,7 +95,9 @@ export const ChatWorkspace = () => {
         <SettingsPanel
           isVisible={workspace.state.isSettingsOpen}
           providerSettings={workspace.state.providerDraftSettings}
+          appThemeId={workspace.state.appThemeId}
           onClose={workspace.closeSettings}
+          onAppThemeSelected={workspace.selectAppTheme}
           onProviderSelected={workspace.selectProvider}
           onApiKeyChanged={workspace.changeApiKey}
           onModelChanged={workspace.changeModel}
@@ -177,24 +181,28 @@ export const ChatWorkspace = () => {
                 <span className="reading-mode-switch__track" />
               </label>
               <div className="reading-mode-trigger">
-                <button
-                  type="button"
-                  className="icon-button reading-mode-settings-btn"
-                  aria-label="Reading mode settings"
-                  onClick={() => setIsReadingModeDialogOpen(true)}
-                >
-                  <Settings size={14} />
-                </button>
-                <ReadingModeDialog
-                  isVisible={isReadingModeDialogOpen}
-                  readingModeSettings={rm}
-                  onClose={() => setIsReadingModeDialogOpen(false)}
-                  onReadingSchemeSelected={workspace.selectReadingScheme}
-                  onHideTopBarToggled={workspace.toggleReadingHideTopBar}
-                  onHideSidebarToggled={workspace.toggleReadingHideSidebar}
-                  onHideComposerToggled={workspace.toggleReadingHideComposer}
-                  onHideUserMessagesToggled={workspace.toggleReadingHideUserMessages}
-                />
+                {!isReading && (
+                  <>
+                    <button
+                      type="button"
+                      className="icon-button reading-mode-settings-btn"
+                      aria-label="Reading mode settings"
+                      onClick={() => setIsReadingModeDialogOpen(true)}
+                    >
+                      <Settings size={14} />
+                    </button>
+                    <ReadingModeDialog
+                      isVisible={isReadingModeDialogOpen}
+                      readingModeSettings={rm}
+                      onClose={() => setIsReadingModeDialogOpen(false)}
+                      onReadingSchemeSelected={workspace.selectReadingScheme}
+                      onHideTopBarToggled={workspace.toggleReadingHideTopBar}
+                      onHideSidebarToggled={workspace.toggleReadingHideSidebar}
+                      onHideComposerToggled={workspace.toggleReadingHideComposer}
+                      onHideUserMessagesToggled={workspace.toggleReadingHideUserMessages}
+                    />
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import {
+  appThemeCatalog,
+  type AppThemeId,
+} from '../domain/app-theme-settings'
+import {
   getProviderMetadata,
   providerCatalog,
   type ProviderId,
@@ -10,7 +14,9 @@ import {
 interface SettingsPanelProps {
   readonly isVisible: boolean
   readonly providerSettings: ProviderSettings
+  readonly appThemeId: AppThemeId
   readonly onClose: () => void
+  readonly onAppThemeSelected: (appThemeId: AppThemeId) => void
   readonly onProviderSelected: (providerId: ProviderId) => void
   readonly onApiKeyChanged: (providerId: ProviderId, apiKey: string) => void
   readonly onModelChanged: (providerId: ProviderId, model: string) => void
@@ -22,7 +28,9 @@ interface SettingsPanelProps {
 export const SettingsPanel = ({
   isVisible,
   providerSettings,
+  appThemeId,
   onClose,
+  onAppThemeSelected,
   onProviderSelected,
   onApiKeyChanged,
   onModelChanged,
@@ -79,11 +87,26 @@ export const SettingsPanel = ({
         </button>
       </div>
 
+      <label className="field-group" htmlFor="app-theme-selector">
+        <span>App theme</span>
+        <select
+          id="app-theme-selector"
+          ref={firstFieldRef}
+          value={appThemeId}
+          onChange={(event) => onAppThemeSelected(event.target.value as AppThemeId)}
+        >
+          {appThemeCatalog.map((theme) => (
+            <option key={theme.id} value={theme.id}>
+              {theme.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <label className="field-group" htmlFor="provider-selector">
         <span>Provider</span>
         <select
           id="provider-selector"
-          ref={firstFieldRef}
           value={activeProviderId}
           onChange={(event) => onProviderSelected(event.target.value as ProviderId)}
         >

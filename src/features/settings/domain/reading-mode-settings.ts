@@ -1,4 +1,10 @@
-export const readingSchemeIds = ['light', 'dark', 'system'] as const
+export const readingSchemeIds = [
+  'paper',
+  'warm-sepia',
+  'soft-gray',
+  'sage',
+  'night',
+] as const
 
 export type ReadingSchemeId = (typeof readingSchemeIds)[number]
 
@@ -17,14 +23,16 @@ export interface ReadingModeSettings {
 }
 
 export const readingSchemeCatalog: ReadonlyArray<ReadingScheme> = [
-  { id: 'light', label: 'Light' },
-  { id: 'dark', label: 'Dark' },
-  { id: 'system', label: 'Follow System' },
+  { id: 'paper', label: 'Paper (high contrast)' },
+  { id: 'warm-sepia', label: 'Warm Sepia (reduced glare)' },
+  { id: 'soft-gray', label: 'Soft Gray (balanced contrast)' },
+  { id: 'sage', label: 'Muted Sage (low blue intensity)' },
+  { id: 'night', label: 'Night Charcoal (dim environments)' },
 ]
 
 export const defaultReadingModeSettings: ReadingModeSettings = {
   isEnabled: false,
-  schemeId: 'light',
+  schemeId: 'paper',
   hideTopBar: true,
   hideSidebar: true,
   hideComposer: true,

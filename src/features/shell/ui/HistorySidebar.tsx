@@ -17,6 +17,7 @@ interface HistorySidebarProps {
   readonly onToggleSidebar: () => void
   readonly onCreateThread: () => void
   readonly onSelectThread: (conversationId: string) => void
+  readonly onDeleteThread: (conversationId: string) => void
   readonly onOpenSettings: () => void
   readonly readingModeSettings: ReadingModeSettings
   readonly isReadingModeDialogOpen: boolean
@@ -39,6 +40,7 @@ export const HistorySidebar = ({
   onToggleSidebar,
   onCreateThread,
   onSelectThread,
+  onDeleteThread,
   onOpenSettings,
   readingModeSettings,
   isReadingModeDialogOpen,
@@ -84,14 +86,24 @@ export const HistorySidebar = ({
       <ol className="history-list">
         {history.map((thread) => (
           <li key={thread.id} className="history-list__item">
-            <button
-              type="button"
-              className="history-list__button"
-              aria-current={thread.id === activeConversationId ? 'true' : 'false'}
-              onClick={() => onSelectThread(thread.id)}
-            >
-              <span className="history-list__title">{thread.title}</span>
-            </button>
+            <div className="history-list__row">
+              <button
+                type="button"
+                className="history-list__button"
+                aria-current={thread.id === activeConversationId ? 'true' : 'false'}
+                onClick={() => onSelectThread(thread.id)}
+              >
+                <span className="history-list__title">{thread.title}</span>
+              </button>
+              <button
+                type="button"
+                className="history-list__delete"
+                aria-label="Delete thread"
+                onClick={() => onDeleteThread(thread.id)}
+              >
+                <X size={13} />
+              </button>
+            </div>
           </li>
         ))}
       </ol>
@@ -127,26 +139,28 @@ export const HistorySidebar = ({
               <span className="reading-mode-switch__track" />
             </label>
           )}
-          <div className="reading-mode-trigger">
-            <button
-              type="button"
-              className="icon-button reading-mode-settings-btn"
-              aria-label="Reading mode settings"
-              onClick={onOpenReadingModeDialog}
-            >
-              <Settings size={14} />
-            </button>
-            <ReadingModeDialog
-              isVisible={isReadingModeDialogOpen}
-              readingModeSettings={readingModeSettings}
-              onClose={onCloseReadingModeDialog}
-              onReadingSchemeSelected={onReadingSchemeSelected}
-              onHideTopBarToggled={onHideTopBarToggled}
-              onHideSidebarToggled={onHideSidebarToggled}
-              onHideComposerToggled={onHideComposerToggled}
-              onHideUserMessagesToggled={onHideUserMessagesToggled}
-            />
-          </div>
+          {!readingModeSettings.isEnabled && (
+            <div className="reading-mode-trigger">
+              <button
+                type="button"
+                className="icon-button reading-mode-settings-btn"
+                aria-label="Reading mode settings"
+                onClick={onOpenReadingModeDialog}
+              >
+                <Settings size={14} />
+              </button>
+              <ReadingModeDialog
+                isVisible={isReadingModeDialogOpen}
+                readingModeSettings={readingModeSettings}
+                onClose={onCloseReadingModeDialog}
+                onReadingSchemeSelected={onReadingSchemeSelected}
+                onHideTopBarToggled={onHideTopBarToggled}
+                onHideSidebarToggled={onHideSidebarToggled}
+                onHideComposerToggled={onHideComposerToggled}
+                onHideUserMessagesToggled={onHideUserMessagesToggled}
+              />
+            </div>
+          )}
         </div>
         </div>
       </div>

@@ -174,6 +174,21 @@ describe('App shell', () => {
     ).toBeInTheDocument()
   })
 
+  it('deletes a thread from the history list using the icon action', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'New thread' }))
+
+    expect(screen.getAllByRole('button', { name: /Thread \d/ })).toHaveLength(2)
+
+    await user.click(screen.getAllByRole('button', { name: 'Delete thread' })[0])
+
+    expect(screen.queryByRole('button', { name: /Thread 1/ })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Thread \d/ })).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /Thread 2/ })).toHaveAttribute('aria-current', 'true')
+  })
+
   it('restores each thread messages when switching threads', async () => {
     const user = userEvent.setup()
     render(<App />)
@@ -222,6 +237,7 @@ describe('App shell', () => {
     const firstMount = render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Open settings' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'App theme' }), 'nord')
     await user.selectOptions(screen.getByRole('combobox', { name: 'Provider' }), 'anthropic')
     await user.type(screen.getByLabelText('API key'), 'anthropic-test-key')
     await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
@@ -233,11 +249,63 @@ describe('App shell', () => {
     render(<App />)
 
     expect(screen.getByTestId('app-shell')).toHaveAttribute('data-reading-mode', 'true')
+    expect(screen.getByTestId('app-shell')).toHaveAttribute('data-app-theme', 'nord')
 
     await user.click(screen.getAllByRole('checkbox').at(-1)!)
     await user.click(screen.getByRole('button', { name: 'Open settings' }))
     expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveValue('anthropic')
+    expect(screen.getByRole('combobox', { name: 'App theme' })).toHaveValue('nord')
     expect(screen.getByLabelText('API key')).toHaveValue('anthropic-test-key')
+  })
+
+  it('offers app themes in general settings and applies selected theme', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open settings' }))
+
+    const appThemeSelect = screen.getByRole('combobox', { name: 'App theme' })
+    expect(appThemeSelect).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Light' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Dark' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Follow System' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Dracula' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Monokai' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Nord' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Solarized Dark' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'GitHub Dark' })).toBeInTheDocument()
+
+    await user.selectOptions(appThemeSelect, 'dracula')
+    expect(screen.getByTestId('app-shell')).toHaveAttribute('data-app-theme', 'dracula')
+  })
+
+  it('hides reading mode settings button when reading mode is active', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(screen.getByRole('button', { name: 'Reading mode settings' })).toBeInTheDocument()
+
+    await user.click(screen.getAllByRole('checkbox').at(-1)!)
+
+    expect(screen.queryByRole('button', { name: 'Reading mode settings' })).not.toBeInTheDocument()
+  })
+
+  it('shows five readability themes in reading mode settings', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Reading mode settings' }))
+
+    const readingThemeSelect = screen.getByRole('combobox', { name: 'Theme' })
+    expect(readingThemeSelect).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Paper (high contrast)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Warm Sepia (reduced glare)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Soft Gray (balanced contrast)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Muted Sage (low blue intensity)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Night Charcoal (dim environments)' })).toBeInTheDocument()
+
+    await user.selectOptions(readingThemeSelect, 'night')
+    expect(screen.getByTestId('app-shell')).toHaveAttribute('data-reading-scheme', 'night')
   })
 
   it('saves global system prompt and sends it in provider requests', async () => {

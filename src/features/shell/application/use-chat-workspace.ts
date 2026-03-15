@@ -6,6 +6,10 @@ import {
   type ChatMessage,
 } from '../../chat/domain/chat-message'
 import {
+  defaultAppThemeId,
+  type AppThemeId,
+} from '../../settings/domain/app-theme-settings'
+import {
   defaultReadingModeSettings,
   setReadingScheme,
   toggleReadingMode,
@@ -35,6 +39,7 @@ interface ConversationSummary {
 interface ChatWorkspaceState {
   readonly isSidebarCollapsed: boolean
   readonly isSettingsOpen: boolean
+  readonly appThemeId: AppThemeId
   readonly readingModeSettings: ReadingModeSettings
   readonly providerSettings: ProviderSettings
   readonly providerDraftSettings: ProviderSettings
@@ -51,6 +56,7 @@ type ChatWorkspaceAction =
   | { readonly type: 'sidebar/toggled' }
   | { readonly type: 'settings/opened' }
   | { readonly type: 'settings/closed' }
+  | { readonly type: 'app-theme/selected'; readonly appThemeId: AppThemeId }
   | { readonly type: 'reading-mode/toggled' }
   | { readonly type: 'reading-mode/hide-top-bar-toggled' }
   | { readonly type: 'reading-mode/hide-sidebar-toggled' }
@@ -80,6 +86,7 @@ type ChatWorkspaceAction =
     }
   | { readonly type: 'provider/saved' }
   | { readonly type: 'conversation/created' }
+  | { readonly type: 'conversation/deleted'; readonly conversationId: string }
   | { readonly type: 'conversation/selected'; readonly conversationId: string }
   | { readonly type: 'composer/changed'; readonly value: string }
   | { readonly type: 'message/sending-started'; readonly message: ChatMessage }
@@ -115,6 +122,7 @@ const createDefaultState = (): ChatWorkspaceState => {
   return {
     isSidebarCollapsed: false,
     isSettingsOpen: false,
+    appThemeId: defaultAppThemeId,
     readingModeSettings: defaultReadingModeSettings,
     providerSettings: initialProviderSettings,
     providerDraftSettings: initialProviderSettings,
@@ -145,6 +153,7 @@ const createInitialState = (): ChatWorkspaceState => {
 
   return {
     ...createDefaultState(),
+    appThemeId: persistedState.appThemeId,
     readingModeSettings: persistedState.readingModeSettings,
     providerSettings: persistedState.providerSettings,
     providerDraftSettings: persistedState.providerSettings,
@@ -203,6 +212,61 @@ const buildRegenerationHistory = (
   return hasUserPrompt ? historyWithoutLastAssistant : null
 }
 
+const deleteConversationFromState = (
+  state: ChatWorkspaceState,
+  conversationId: string,
+): ChatWorkspaceState => {
+  if (!Object.hasOwn(state.conversationMessages, conversationId)) {
+    return state
+  }
+
+  const nextHistory = state.history.filter((conversation) => conversation.id !== conversationId)
+  const nextConversationMessages = { ...state.conversationMessages }
+  delete nextConversationMessages[conversationId]
+
+  if (nextHistory.length === 0) {
+    const replacementConversationId = createUniqueId()
+    const welcomeMessage = createWelcomeMessage()
+
+    return {
+      ...state,
+      history: [
+        {
+          id: replacementConversationId,
+          title: 'Thread 1',
+          updatedAtLabel: 'Just now',
+        },
+      ],
+      activeConversationId: replacementConversationId,
+      conversationMessages: {
+        [replacementConversationId]: [welcomeMessage],
+      },
+      messages: [welcomeMessage],
+      composerValue: '',
+    }
+  }
+
+  if (state.activeConversationId !== conversationId) {
+    return {
+      ...state,
+      history: nextHistory,
+      conversationMessages: nextConversationMessages,
+    }
+  }
+
+  const nextActiveConversationId = nextHistory.at(-1)?.id ?? state.activeConversationId
+  const nextMessages = nextConversationMessages[nextActiveConversationId] ?? []
+
+  return {
+    ...state,
+    history: nextHistory,
+    conversationMessages: nextConversationMessages,
+    activeConversationId: nextActiveConversationId,
+    messages: nextMessages,
+    composerValue: '',
+  }
+}
+
 const reducer = (
   state: ChatWorkspaceState,
   action: ChatWorkspaceAction,
@@ -224,6 +288,12 @@ const reducer = (
       return {
         ...state,
         isSettingsOpen: false,
+      }
+
+    case 'app-theme/selected':
+      return {
+        ...state,
+        appThemeId: action.appThemeId,
       }
 
     case 'reading-mode/toggled':
@@ -385,6 +455,9 @@ const reducer = (
       }
     }
 
+    case 'conversation/deleted':
+      return deleteConversationFromState(state, action.conversationId)
+
     case 'conversation/selected': {
       const selectedConversationMessages =
         state.conversationMessages[action.conversationId] ?? []
@@ -522,6 +595,7 @@ interface UseChatWorkspaceResult {
   readonly toggleSidebar: () => void
   readonly openSettings: () => void
   readonly closeSettings: () => void
+  readonly selectAppTheme: (appThemeId: AppThemeId) => void
   readonly toggleReadingMode: () => void
   readonly selectReadingScheme: (schemeId: ReadingSchemeId) => void
   readonly toggleReadingHideTopBar: () => void
@@ -535,6 +609,7 @@ interface UseChatWorkspaceResult {
   readonly saveProviderSettings: () => void
   readonly createConversation: () => void
   readonly selectConversation: (conversationId: string) => void
+  readonly deleteConversation: (conversationId: string) => void
   readonly changeComposerValue: (value: string) => void
   readonly cancelSendMessage: () => void
   readonly canRegenerateLastResponse: boolean
@@ -551,6 +626,7 @@ export const useChatWorkspace = (
   useEffect(() => {
     saveChatWorkspaceState({
       readingModeSettings: state.readingModeSettings,
+      appThemeId: state.appThemeId,
       providerSettings: state.providerSettings,
       history: state.history,
       activeConversationId: state.activeConversationId,
@@ -562,6 +638,7 @@ export const useChatWorkspace = (
     state.history,
     state.providerSettings,
     state.readingModeSettings,
+    state.appThemeId,
   ])
 
   const toggleSidebar = useCallback(() => {
@@ -574,6 +651,10 @@ export const useChatWorkspace = (
 
   const closeSettings = useCallback(() => {
     dispatch({ type: 'settings/closed' })
+  }, [])
+
+  const selectAppTheme = useCallback((appThemeId: AppThemeId) => {
+    dispatch({ type: 'app-theme/selected', appThemeId })
   }, [])
 
   const onToggleReadingMode = useCallback(() => {
@@ -634,6 +715,10 @@ export const useChatWorkspace = (
 
   const selectConversation = useCallback((conversationId: string) => {
     dispatch({ type: 'conversation/selected', conversationId })
+  }, [])
+
+  const deleteConversation = useCallback((conversationId: string) => {
+    dispatch({ type: 'conversation/deleted', conversationId })
   }, [])
 
   const changeComposerValue = useCallback((value: string) => {
@@ -780,6 +865,7 @@ export const useChatWorkspace = (
     toggleSidebar,
     openSettings,
     closeSettings,
+    selectAppTheme,
     toggleReadingMode: onToggleReadingMode,
     selectReadingScheme,
     toggleReadingHideTopBar: onToggleReadingHideTopBar,
@@ -793,6 +879,7 @@ export const useChatWorkspace = (
     saveProviderSettings,
     createConversation,
     selectConversation,
+    deleteConversation,
     changeComposerValue,
     cancelSendMessage,
     canRegenerateLastResponse,

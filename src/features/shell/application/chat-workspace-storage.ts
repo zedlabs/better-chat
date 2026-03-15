@@ -6,6 +6,12 @@ import {
   type ProviderSettings,
 } from '../../settings/domain/provider-settings'
 import {
+  appThemeIds,
+  defaultAppThemeId,
+  type AppThemeId,
+} from '../../settings/domain/app-theme-settings'
+import {
+  defaultReadingModeSettings,
   readingSchemeIds,
   type ReadingModeSettings,
 } from '../../settings/domain/reading-mode-settings'
@@ -21,6 +27,7 @@ interface ConversationSummary {
 }
 
 export interface PersistedChatWorkspaceState {
+  readonly appThemeId: AppThemeId
   readonly readingModeSettings: ReadingModeSettings
   readonly providerSettings: ProviderSettings
   readonly history: ReadonlyArray<ConversationSummary>
@@ -64,8 +71,10 @@ const isValidProviderSettings = (value: unknown): value is ProviderSettings => {
 const isValidReadingModeSettings = (value: unknown): value is ReadingModeSettings =>
   isObject(value) &&
   typeof value.isEnabled === 'boolean' &&
-  typeof value.schemeId === 'string' &&
-  readingSchemeIds.includes(value.schemeId as (typeof readingSchemeIds)[number])
+  typeof value.schemeId === 'string'
+
+const isValidAppThemeId = (value: unknown): value is AppThemeId =>
+  typeof value === 'string' && appThemeIds.includes(value as AppThemeId)
 
 const isValidMessage = (value: unknown): value is ChatMessage =>
   isObject(value) &&
@@ -108,6 +117,7 @@ export const loadChatWorkspaceState = (): PersistedChatWorkspaceState | null => 
 
     if (
       !isValidReadingModeSettings(parsed.readingModeSettings) ||
+      (parsed.appThemeId !== undefined && !isValidAppThemeId(parsed.appThemeId)) ||
       !isValidProviderSettings(parsed.providerSettings) ||
       !isValidHistory(parsed.history) ||
       typeof parsed.activeConversationId !== 'string' ||
@@ -121,9 +131,16 @@ export const loadChatWorkspaceState = (): PersistedChatWorkspaceState | null => 
     }
 
     return {
+      appThemeId: isValidAppThemeId(parsed.appThemeId)
+        ? parsed.appThemeId
+        : defaultAppThemeId,
       readingModeSettings: {
         isEnabled: parsed.readingModeSettings.isEnabled,
-        schemeId: parsed.readingModeSettings.schemeId,
+        schemeId: readingSchemeIds.includes(
+          parsed.readingModeSettings.schemeId as (typeof readingSchemeIds)[number],
+        )
+          ? parsed.readingModeSettings.schemeId
+          : defaultReadingModeSettings.schemeId,
         hideTopBar: typeof parsed.readingModeSettings.hideTopBar === 'boolean'
           ? parsed.readingModeSettings.hideTopBar
           : true,
