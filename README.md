@@ -1,55 +1,64 @@
 # Better Chat UI
 
-Secure, Locally stored, bring-your-own-key (BYOK) chat workspace with an opinionated UI that focuses on usability.
+Better Chat UI is a local-first, bring-your-own-key chat workspace for people who want more control than typical AI chat apps provide.
 
-## Why this exists
+It is built for comparing providers, keeping conversations on your own machine, branching off interesting parts of a response, and switching into a cleaner reading view when long outputs need real attention.
 
-Most mainstream chat interfaces are great for quick prompts, but weak for power users who need:
+![Better Chat UI main workspace](./public/ui.png)
 
-- stable multi-provider workflows
-- explicit settings control per provider/model
-- branchable thinking directly from highlighted text
-- predictable UX for long outputs and streaming
-- a reading mode for focused reading sessions, that doesnt block half the screen (claude.ai is really bad at this)
+## Quick Demo
 
-This project focuses on those gaps with a local-first UX and no backend lock-in.
+See the product in action: [Watch the walkthrough video](./public/output.mp4)
 
-## Core Features
+## Why use it
+
+Most chat apps are fine for quick prompts, but they start to break down when you need to:
+
+- work across multiple providers without changing your workflow
+- keep model and provider settings explicit instead of hidden
+- branch from a specific part of a message without losing the main thread
+- read long answers in a focused layout instead of a cramped chat pane
+- store conversations locally instead of depending on a hosted backend
+
+Better Chat UI is designed to make those workflows feel deliberate, fast, and predictable.
+
+## What makes it useful
 
 - BYOK support for OpenAI, Anthropic, and Gemini
 - Provider-native streaming (SSE)
-- All chat history is stored locally, never leaves your computer
-- No bloated dependencies or frameworks
+- Local chat persistence so your history stays on your machine
 - Threaded workspace with persistence across reloads
-- Branch dialog chat from text selections (`+ Create New Branch Here`)
-- Branching context workflow: turn any highlighted passage into a focused side conversation without losing your main thread
+- Selection-based branching with `+ Create New Branch Here`
 - Global system prompt in Settings
-- Smart Markdown rendering 
-- Reading mode profiles that can hide the top bar, sidebar, composer, and user messages for distraction-free review with reading-optimized colour schemes
+- Smart Markdown rendering for structured answers
+- Reading mode profiles that can hide the top bar, sidebar, composer, and user messages for distraction-free review
+- Lightweight stack without a bloated framework layer
+
+## See the main workflows
+
+### Main workspace
+
+Use the main chat UI for day-to-day prompting, provider switching, and longer working sessions.
+
+![Main conversation workspace](./public/ui.png)
+
+### Branch from selected text
+
+When a specific paragraph or idea deserves its own thread, highlight it and create a branch so you can explore that path without derailing the original conversation.
+
+![Branching from selected text](./public/branch.png)
+
+### Read long outputs comfortably
+
+Reading mode reduces UI chrome so you can focus on the answer itself, which is especially useful for long explanations, drafts, reviews, and research notes.
+
+![Reading mode view](./public/reading.png)
 
 ## Why branching and reading mode matter
 
-- **Branching is required** when you need to explore alternatives without derailing the primary conversation.
-- **Selection-based branching** keeps source context explicit, so branch reasoning is anchored to the exact text that triggered it.
-- **Reading mode is required** for long outputs where UI chrome competes with comprehension.
-- **Full layout reduction** (hiding non-essential UI surfaces) creates a focused reading session similar to a clean document view, while keeping chat state intact.
-
-## Where common chat UIs fall short
-
-
-- hidden model/config behavior that changes output unpredictably
-- limited branching and poor context traceability
-- weak multi-provider parity for experimentation
-- output truncation/streaming inconsistencies in long sessions
-
-Better Chat UI is designed to make these tradeoffs explicit and controllable.
-
-## Screenshots
-
-- `docs/images/main-chat.png` - Main conversation workspace
-- `docs/images/settings-panel.png` - Provider settings + global system prompt
-- `docs/images/branch-dialog.png` - Branch chat dialog from highlighted text
-- `docs/images/reading-mode.png` - Reading mode variants
+- **Branching keeps context precise.** A branch can be anchored to the exact text that triggered the follow-up, which makes exploration easier to trace.
+- **Reading mode improves comprehension.** Long model outputs are easier to review when the surrounding UI gets out of the way.
+- **The main thread stays clean.** You can test alternatives and side questions without turning one conversation into a mess.
 
 ## Local Development
 
@@ -58,10 +67,10 @@ npm install
 npm run dev
 ```
 
-Open the Vite URL (typically `http://localhost:5173`).
+Open the Vite URL, typically `http://localhost:5173`.
 
 ## Scripts
 
-- `npm run dev` - start local dev server
+- `npm run dev` - start the local dev server
 - `npm run test -- --run` - run tests once
-- `npm run build` - type-check and production build
+- `npm run build` - type-check and create a production build
