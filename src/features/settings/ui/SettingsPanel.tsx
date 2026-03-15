@@ -1,42 +1,56 @@
+import { useEffect, useRef } from 'react'
+import { X } from 'lucide-react'
 import {
   getProviderMetadata,
   providerCatalog,
   type ProviderId,
   type ProviderSettings,
 } from '../domain/provider-settings'
-import {
-  readingSchemeCatalog,
-  type ReadingModeSettings,
-  type ReadingSchemeId,
-} from '../domain/reading-mode-settings'
 
 interface SettingsPanelProps {
   readonly isVisible: boolean
   readonly providerSettings: ProviderSettings
-  readonly readingModeSettings: ReadingModeSettings
   readonly onClose: () => void
   readonly onProviderSelected: (providerId: ProviderId) => void
   readonly onApiKeyChanged: (providerId: ProviderId, apiKey: string) => void
   readonly onModelChanged: (providerId: ProviderId, model: string) => void
+  readonly onGlobalSystemPromptChanged: (value: string) => void
   readonly onSaveProviderSettings: () => void
   readonly hasUnsavedProviderChanges: boolean
-  readonly onReadingModeToggled: () => void
-  readonly onReadingSchemeSelected: (schemeId: ReadingSchemeId) => void
 }
 
 export const SettingsPanel = ({
   isVisible,
   providerSettings,
-  readingModeSettings,
   onClose,
   onProviderSelected,
   onApiKeyChanged,
   onModelChanged,
+  onGlobalSystemPromptChanged,
   onSaveProviderSettings,
   hasUnsavedProviderChanges,
-  onReadingModeToggled,
-  onReadingSchemeSelected,
 }: SettingsPanelProps) => {
+  const firstFieldRef = useRef<HTMLSelectElement>(null)
+
+  useEffect(() => {
+    if (!isVisible) {
+      return
+    }
+
+    firstFieldRef.current?.focus()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [isVisible, onClose])
+
   if (!isVisible) {
     return null
   }
@@ -47,7 +61,12 @@ export const SettingsPanel = ({
     providerSettings.configurations[activeProviderId]
 
   return (
-    <section className="settings-panel" role="dialog" aria-label="Settings">
+    <section
+      className="settings-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Settings"
+    >
       <div className="settings-panel__header">
         <h2>Settings</h2>
         <button
@@ -56,7 +75,7 @@ export const SettingsPanel = ({
           aria-label="Close settings"
           onClick={onClose}
         >
-          x
+          <X size={14} />
         </button>
       </div>
 
@@ -64,6 +83,7 @@ export const SettingsPanel = ({
         <span>Provider</span>
         <select
           id="provider-selector"
+          ref={firstFieldRef}
           value={activeProviderId}
           onChange={(event) => onProviderSelected(event.target.value as ProviderId)}
         >
@@ -105,6 +125,17 @@ export const SettingsPanel = ({
         />
       </label>
 
+      <label className="field-group" htmlFor="global-system-prompt">
+        <span>Global system prompt</span>
+        <textarea
+          id="global-system-prompt"
+          value={providerSettings.globalSystemPrompt}
+          rows={4}
+          onChange={(event) => onGlobalSystemPromptChanged(event.target.value)}
+          placeholder="Optional global behavior instructions"
+        />
+      </label>
+
       <div className="settings-panel__provider-actions">
         <button
           type="button"
@@ -121,42 +152,6 @@ export const SettingsPanel = ({
             : 'Provider settings are saved.'}
         </p>
       </div>
-
-      <section className="settings-panel__guidance" aria-label="Provider guidance">
-        <h3>{activeProvider.label} best practices</h3>
-        <ul>
-          {activeProvider.bestPractices.map((guidance) => (
-            <li key={guidance}>{guidance}</li>
-          ))}
-        </ul>
-      </section>
-
-      <label className="toggle-field" htmlFor="reading-mode-toggle">
-        <input
-          id="reading-mode-toggle"
-          type="checkbox"
-          checked={readingModeSettings.isEnabled}
-          onChange={onReadingModeToggled}
-        />
-        <span>Enable reading mode</span>
-      </label>
-
-      <label className="field-group" htmlFor="reading-scheme-selector">
-        <span>Reading color scheme</span>
-        <select
-          id="reading-scheme-selector"
-          value={readingModeSettings.schemeId}
-          onChange={(event) =>
-            onReadingSchemeSelected(event.target.value as ReadingSchemeId)
-          }
-        >
-          {readingSchemeCatalog.map((scheme) => (
-            <option key={scheme.id} value={scheme.id}>
-              {scheme.label}
-            </option>
-          ))}
-        </select>
-      </label>
     </section>
   )
 }

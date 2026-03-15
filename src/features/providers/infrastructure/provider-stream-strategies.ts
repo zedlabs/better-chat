@@ -1,6 +1,13 @@
 import type { ChatGatewayRequest } from '../application/chat-gateway'
 import { geminiHttpStrategy, type GeminiResponse } from './provider-http-strategies'
 import type { SseEvent } from './sse-events'
+import {
+  toAnthropicMessages,
+  toGeminiContents,
+  toOpenAiMessages,
+} from './provider-message-mapping'
+
+const MAX_OUTPUT_TOKENS = 2560
 
 type AccumulationMode = 'append' | 'prefix-aware'
 
@@ -44,10 +51,8 @@ export const openAiStreamStrategy: StreamProviderStrategy<OpenAiStreamResponse> 
       body: JSON.stringify({
         model: request.model,
         stream: true,
-        messages: request.messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
+        max_completion_tokens: MAX_OUTPUT_TOKENS,
+        messages: toOpenAiMessages(request),
       }),
       signal: request.signal,
     },
@@ -89,12 +94,10 @@ export const anthropicStreamStrategy: StreamProviderStrategy<AnthropicStreamResp
       },
       body: JSON.stringify({
         model: request.model,
-        max_tokens: 1024,
+        max_tokens: MAX_OUTPUT_TOKENS,
         stream: true,
-        messages: request.messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
+        system: request.systemPrompt?.trim() || undefined,
+        messages: toAnthropicMessages(request),
       }),
       signal: request.signal,
     },
@@ -132,10 +135,15 @@ export const geminiStreamStrategy: StreamProviderStrategy<GeminiResponse> = {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: request.messages.map((message) => ({
-          role: message.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: message.content }],
-        })),
+        systemInstruction: request.systemPrompt?.trim()
+          ? {
+              parts: [{ text: request.systemPrompt.trim() }],
+            }
+          : undefined,
+        generationConfig: {
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+        },
+        contents: toGeminiContents(request),
       }),
       signal: request.signal,
     },

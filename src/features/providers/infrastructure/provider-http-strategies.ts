@@ -1,4 +1,11 @@
 import type { ChatGatewayRequest } from '../application/chat-gateway'
+import {
+  toAnthropicMessages,
+  toGeminiContents,
+  toOpenAiMessages,
+} from './provider-message-mapping'
+
+const MAX_OUTPUT_TOKENS = 2560
 
 export interface HttpProviderStrategy<TPayload> {
   readonly id: 'openai' | 'anthropic' | 'gemini'
@@ -47,10 +54,8 @@ export const openAiHttpStrategy: HttpProviderStrategy<OpenAiResponse> = {
       },
       body: JSON.stringify({
         model: request.model,
-        messages: request.messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
+        max_completion_tokens: MAX_OUTPUT_TOKENS,
+        messages: toOpenAiMessages(request),
       }),
       signal: request.signal,
     },
@@ -92,11 +97,9 @@ export const anthropicHttpStrategy: HttpProviderStrategy<AnthropicResponse> = {
       },
       body: JSON.stringify({
         model: request.model,
-        max_tokens: 1024,
-        messages: request.messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
+        max_tokens: MAX_OUTPUT_TOKENS,
+        system: request.systemPrompt?.trim() || undefined,
+        messages: toAnthropicMessages(request),
       }),
       signal: request.signal,
     },
@@ -121,10 +124,15 @@ export const geminiHttpStrategy: HttpProviderStrategy<GeminiResponse> = {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: request.messages.map((message) => ({
-          role: message.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: message.content }],
-        })),
+        systemInstruction: request.systemPrompt?.trim()
+          ? {
+              parts: [{ text: request.systemPrompt.trim() }],
+            }
+          : undefined,
+        generationConfig: {
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+        },
+        contents: toGeminiContents(request),
       }),
       signal: request.signal,
     },

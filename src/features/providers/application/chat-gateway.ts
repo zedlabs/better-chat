@@ -5,6 +5,7 @@ export interface ChatGatewayRequest {
   readonly messages: ReadonlyArray<ChatMessage>
   readonly apiKey: string
   readonly model: string
+  readonly systemPrompt?: string
   readonly signal?: AbortSignal
 }
 

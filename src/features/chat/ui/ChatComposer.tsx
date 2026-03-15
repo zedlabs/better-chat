@@ -1,4 +1,5 @@
-import type { FormEvent } from 'react'
+import type { FormEvent, KeyboardEvent } from 'react'
+import { ArrowUp } from 'lucide-react'
 
 interface ChatComposerProps {
   readonly value: string
@@ -22,38 +23,51 @@ export const ChatComposer = ({
     await onSend()
   }
 
+  const handleComposerKeyDown = async (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter' || (!event.ctrlKey && !event.metaKey)) {
+      return
+    }
+
+    event.preventDefault()
+    await onSend()
+  }
+
   return (
     <form className="chat-composer" onSubmit={handleSubmit}>
-      <label className="chat-composer__label" htmlFor="message-composer">
-        Message composer
-      </label>
-      <textarea
-        id="message-composer"
-        className="chat-composer__input"
-        value={value}
-        rows={3}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="Ask anything..."
-      />
-      <div className="chat-composer__footer">
-        {isSending && (
+      <div className="chat-composer__row">
+        <textarea
+          id="message-composer"
+          className="chat-composer__input"
+          value={value}
+          rows={2}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            void handleComposerKeyDown(event)
+          }}
+          placeholder="Ask anything…"
+          aria-label="Message"
+        />
+        <div className="chat-composer__actions">
+          {isSending && (
+            <button
+              type="button"
+              className="secondary-button chat-composer__cancel"
+              aria-label="Cancel response"
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+          )}
           <button
-            type="button"
-            className="secondary-button chat-composer__cancel"
-            aria-label="Cancel response"
-            onClick={onCancel}
+            type="submit"
+            className="primary-button chat-composer__send"
+            aria-label="Send message"
+            data-shortcut="⌘+Enter"
+            disabled={!canSend}
           >
-            Cancel
+            <ArrowUp size={16} />
           </button>
-        )}
-        <button
-          type="submit"
-          className="primary-button"
-          aria-label="Send message"
-          disabled={!canSend}
-        >
-          {isSending ? 'Sending...' : 'Send'}
-        </button>
+        </div>
       </div>
     </form>
   )

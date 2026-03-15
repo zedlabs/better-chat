@@ -1,4 +1,5 @@
 import { type ChatMessage } from '../../chat/domain/chat-message'
+import { clearMessageBranches } from '../../chat/application/message-branch-storage'
 import {
   providerIds,
   type ProviderId,
@@ -38,6 +39,13 @@ const isValidProviderSettings = (value: unknown): value is ProviderSettings => {
     return false
   }
 
+  if (
+    value.globalSystemPrompt !== undefined &&
+    typeof value.globalSystemPrompt !== 'string'
+  ) {
+    return false
+  }
+
   const configurations = value.configurations
   if (!isObject(configurations)) {
     return false
@@ -64,7 +72,9 @@ const isValidMessage = (value: unknown): value is ChatMessage =>
   typeof value.id === 'string' &&
   (value.role === 'user' || value.role === 'assistant') &&
   typeof value.content === 'string' &&
-  typeof value.createdAtIso === 'string'
+  typeof value.createdAtIso === 'string' &&
+  (value.generatedModel === undefined || typeof value.generatedModel === 'string') &&
+  (value.isStreaming === undefined || typeof value.isStreaming === 'boolean')
 
 const isValidHistory = (value: unknown): value is ReadonlyArray<ConversationSummary> =>
   Array.isArray(value) &&
@@ -111,8 +121,26 @@ export const loadChatWorkspaceState = (): PersistedChatWorkspaceState | null => 
     }
 
     return {
-      readingModeSettings: parsed.readingModeSettings,
-      providerSettings: parsed.providerSettings,
+      readingModeSettings: {
+        isEnabled: parsed.readingModeSettings.isEnabled,
+        schemeId: parsed.readingModeSettings.schemeId,
+        hideTopBar: typeof parsed.readingModeSettings.hideTopBar === 'boolean'
+          ? parsed.readingModeSettings.hideTopBar
+          : true,
+        hideSidebar: typeof parsed.readingModeSettings.hideSidebar === 'boolean'
+          ? parsed.readingModeSettings.hideSidebar
+          : true,
+        hideComposer: typeof parsed.readingModeSettings.hideComposer === 'boolean'
+          ? parsed.readingModeSettings.hideComposer
+          : true,
+        hideUserMessages: typeof parsed.readingModeSettings.hideUserMessages === 'boolean'
+          ? parsed.readingModeSettings.hideUserMessages
+          : false,
+      },
+      providerSettings: {
+        ...parsed.providerSettings,
+        globalSystemPrompt: parsed.providerSettings.globalSystemPrompt ?? '',
+      },
       history: parsed.history,
       activeConversationId: parsed.activeConversationId,
       conversationMessages: parsed.conversationMessages,
@@ -133,6 +161,7 @@ export const saveChatWorkspaceState = (state: PersistedChatWorkspaceState): void
 export const clearChatWorkspaceState = (): void => {
   try {
     removeStorageValue(CHAT_WORKSPACE_STORAGE_KEY)
+    clearMessageBranches()
   } catch {
     // Ignore cleanup failures in constrained browser environments.
   }

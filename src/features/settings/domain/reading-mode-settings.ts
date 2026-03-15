@@ -1,4 +1,4 @@
-export const readingSchemeIds = ['original', 'paper', 'sepia', 'high-contrast'] as const
+export const readingSchemeIds = ['light', 'dark', 'system'] as const
 
 export type ReadingSchemeId = (typeof readingSchemeIds)[number]
 
@@ -10,18 +10,25 @@ export interface ReadingScheme {
 export interface ReadingModeSettings {
   readonly isEnabled: boolean
   readonly schemeId: ReadingSchemeId
+  readonly hideTopBar: boolean
+  readonly hideSidebar: boolean
+  readonly hideComposer: boolean
+  readonly hideUserMessages: boolean
 }
 
 export const readingSchemeCatalog: ReadonlyArray<ReadingScheme> = [
-  { id: 'original', label: 'Original Theme' },
-  { id: 'paper', label: 'Paper Light' },
-  { id: 'sepia', label: 'Warm Sepia' },
-  { id: 'high-contrast', label: 'High Contrast' },
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+  { id: 'system', label: 'Follow System' },
 ]
 
 export const defaultReadingModeSettings: ReadingModeSettings = {
   isEnabled: false,
-  schemeId: 'original',
+  schemeId: 'light',
+  hideTopBar: true,
+  hideSidebar: true,
+  hideComposer: true,
+  hideUserMessages: false,
 }
 
 export const toggleReadingMode = (

@@ -52,6 +52,7 @@ export class SendMessageUseCase {
         messages: input.history,
         apiKey: providerConfiguration.apiKey,
         model: providerConfiguration.model,
+        systemPrompt: input.providerSettings.globalSystemPrompt,
         signal: input.signal,
       }
       const answer = gateway.stream

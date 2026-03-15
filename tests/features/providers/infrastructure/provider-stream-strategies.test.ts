@@ -3,7 +3,7 @@ import {
   anthropicStreamStrategy,
   mergeStreamText,
   openAiStreamStrategy,
-} from './provider-stream-strategies'
+} from '../../../../src/features/providers/infrastructure/provider-stream-strategies'
 
 describe('provider stream strategies', () => {
   it('ignores OpenAI [DONE] stream events', () => {

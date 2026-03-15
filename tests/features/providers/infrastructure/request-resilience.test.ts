@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { executeWithResilience } from './request-resilience'
+import { executeWithResilience } from '../../../../src/features/providers/infrastructure/request-resilience'
 
 describe('executeWithResilience', () => {
   it('retries retryable responses until success', async () => {

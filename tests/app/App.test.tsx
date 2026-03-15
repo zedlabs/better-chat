@@ -1,8 +1,10 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import App from './App'
-import { clearChatWorkspaceState } from './features/shell/application/chat-workspace-storage'
+import App from '../../src/App'
+import { clearChatWorkspaceState } from '../../src/features/shell/application/chat-workspace-storage'
+
+const getComposer = () => screen.getByRole('textbox', { name: 'Message' })
 
 describe('App shell', () => {
   beforeEach(() => {
@@ -13,9 +15,9 @@ describe('App shell', () => {
   it('renders the main chat workspace with history sidebar', () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: 'Better Chat' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'BetterChat' })).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: 'Chat history' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Message composer' })).toBeInTheDocument()
+    expect(getComposer()).toBeInTheDocument()
   })
 
   it('collapses and expands the history sidebar', async () => {
@@ -45,14 +47,46 @@ describe('App shell', () => {
     expect(screen.queryByRole('dialog', { name: 'Settings' })).not.toBeInTheDocument()
   })
 
-  it('enables reading mode from settings', async () => {
+  it('enables reading mode from the sidebar toggle', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: 'Open settings' }))
-    await user.click(screen.getByRole('checkbox', { name: 'Enable reading mode' }))
+    await user.click(screen.getAllByRole('checkbox').at(-1)!)
 
     expect(screen.getByTestId('app-shell')).toHaveAttribute('data-reading-mode', 'true')
+  })
+
+  it('keeps the conversation region scrollable in reading mode', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getAllByRole('checkbox').at(-1)!)
+
+    const appShell = screen.getByTestId('app-shell')
+    const conversation = screen.getByRole('region', { name: 'Conversation' })
+
+    expect(appShell).toHaveAttribute('data-reading-mode', 'true')
+    expect(appShell).toHaveAttribute('data-hide-sidebar', 'true')
+    expect(appShell).toHaveAttribute('data-hide-topbar', 'true')
+    expect(appShell).toHaveAttribute('data-hide-composer', 'true')
+
+    Object.defineProperty(conversation, 'scrollHeight', {
+      configurable: true,
+      value: 1200,
+    })
+    Object.defineProperty(conversation, 'clientHeight', {
+      configurable: true,
+      value: 500,
+    })
+    Object.defineProperty(conversation, 'scrollTop', {
+      configurable: true,
+      value: 100,
+      writable: true,
+    })
+
+    fireEvent.scroll(conversation)
+
+    expect(screen.getByRole('button', { name: 'Scroll to bottom' })).toBeInTheDocument()
   })
 
   it('offers all three providers in settings', async () => {
@@ -66,7 +100,6 @@ describe('App shell', () => {
     expect(screen.getByRole('option', { name: 'OpenAI' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Anthropic' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Gemini' })).toBeInTheDocument()
-
     expect(screen.getByRole('option', { name: 'gpt-5.4' })).toBeInTheDocument()
   })
 
@@ -90,7 +123,7 @@ describe('App shell', () => {
     await user.type(screen.getByLabelText('API key'), 'sk-test-key')
 
     await user.click(screen.getByRole('button', { name: 'Close settings' }))
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'first')
+    await user.type(getComposer(), 'first')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     await waitFor(() => {
@@ -102,7 +135,7 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
     await user.click(screen.getByRole('button', { name: 'Close settings' }))
 
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'second')
+    await user.type(getComposer(), 'second')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     await waitFor(() => {
@@ -115,7 +148,7 @@ describe('App shell', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Hello there')
+    await user.type(getComposer(), 'Hello there')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     const conversation = screen.getByRole('region', { name: 'Conversation' })
@@ -132,14 +165,8 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: 'New thread' }))
 
     expect(screen.getAllByRole('button', { name: /Thread \d/ })).toHaveLength(2)
-    expect(screen.getByRole('button', { name: /Thread 2/ })).toHaveAttribute(
-      'aria-current',
-      'true',
-    )
-    expect(screen.getByRole('button', { name: /Thread 1/ })).toHaveAttribute(
-      'aria-current',
-      'false',
-    )
+    expect(screen.getByRole('button', { name: /Thread 2/ })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('button', { name: /Thread 1/ })).toHaveAttribute('aria-current', 'false')
     expect(
       screen.getByText(
         'Welcome to Better Chat. Add your API key in Settings, then start the conversation.',
@@ -151,13 +178,13 @@ describe('App shell', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Thread one')
+    await user.type(getComposer(), 'Thread one')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
     const conversation = screen.getByRole('region', { name: 'Conversation' })
     expect(within(conversation).getByText('Thread one')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'New thread' }))
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Thread two')
+    await user.type(getComposer(), 'Thread two')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
     expect(within(conversation).getByText('Thread two')).toBeInTheDocument()
     expect(within(conversation).queryByText('Thread one')).not.toBeInTheDocument()
@@ -171,10 +198,10 @@ describe('App shell', () => {
     const user = userEvent.setup()
     const firstMount = render(<App />)
 
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Thread one')
+    await user.type(getComposer(), 'Thread one')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
     await user.click(screen.getByRole('button', { name: 'New thread' }))
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Thread two')
+    await user.type(getComposer(), 'Thread two')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     const conversation = screen.getByRole('region', { name: 'Conversation' })
@@ -185,7 +212,9 @@ describe('App shell', () => {
 
     expect(screen.getByRole('button', { name: /Thread one/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Thread two/ })).toBeInTheDocument()
-    expect(within(screen.getByRole('region', { name: 'Conversation' })).getByText('Thread two')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('region', { name: 'Conversation' })).getByText('Thread two'),
+    ).toBeInTheDocument()
   })
 
   it('rehydrates saved provider settings and reading mode', async () => {
@@ -196,8 +225,7 @@ describe('App shell', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: 'Provider' }), 'anthropic')
     await user.type(screen.getByLabelText('API key'), 'anthropic-test-key')
     await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
-    await user.click(screen.getByRole('checkbox', { name: 'Enable reading mode' }))
-    await user.click(screen.getByRole('button', { name: 'Close settings' }))
+    await user.click(screen.getAllByRole('checkbox').at(-1)!)
 
     expect(screen.getByTestId('app-shell')).toHaveAttribute('data-reading-mode', 'true')
 
@@ -206,9 +234,43 @@ describe('App shell', () => {
 
     expect(screen.getByTestId('app-shell')).toHaveAttribute('data-reading-mode', 'true')
 
+    await user.click(screen.getAllByRole('checkbox').at(-1)!)
     await user.click(screen.getByRole('button', { name: 'Open settings' }))
     expect(screen.getByRole('combobox', { name: 'Provider' })).toHaveValue('anthropic')
     expect(screen.getByLabelText('API key')).toHaveValue('anthropic-test-key')
+  })
+
+  it('saves global system prompt and sends it in provider requests', async () => {
+    const user = userEvent.setup()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: 'Done' } }],
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    )
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open settings' }))
+    await user.type(screen.getByLabelText('API key'), 'sk-test-key')
+    await user.type(screen.getByLabelText('Global system prompt'), 'Always answer in bullet points.')
+    await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
+    await user.click(screen.getByRole('button', { name: 'Close settings' }))
+
+    await user.type(getComposer(), 'Hello')
+    await user.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Done')).toBeInTheDocument()
+    })
+
+    const requestBody = String((fetchSpy.mock.calls.at(-1)?.[1] as RequestInit).body)
+    expect(requestBody).toContain('Always answer in bullet points.')
   })
 
   it('cancels an in-flight provider request', async () => {
@@ -216,9 +278,7 @@ describe('App shell', () => {
     const observedSignals: AbortSignal[] = []
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((_, init) => {
-      const requestSignal = (init as RequestInit | undefined)?.signal as
-        | AbortSignal
-        | undefined
+      const requestSignal = (init as RequestInit | undefined)?.signal as AbortSignal | undefined
 
       if (requestSignal) {
         observedSignals.push(requestSignal)
@@ -242,7 +302,7 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
     await user.click(screen.getByRole('button', { name: 'Close settings' }))
 
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Long request')
+    await user.type(getComposer(), 'Long request')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     expect(screen.getByRole('button', { name: 'Cancel response' })).toBeInTheDocument()
@@ -285,7 +345,7 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
     await user.click(screen.getByRole('button', { name: 'Close settings' }))
 
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Please recover')
+    await user.type(getComposer(), 'Please recover')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     await waitFor(() => {
@@ -329,14 +389,14 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
     await user.click(screen.getByRole('button', { name: 'Close settings' }))
 
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Explain this')
+    await user.type(getComposer(), 'Explain this')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     await waitFor(() => {
       expect(screen.getByText('First answer')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Regenerate response' }))
+    screen.getByRole('button', { name: 'Regenerate response' }).click()
 
     await waitFor(() => {
       expect(fetchSpy).toHaveBeenCalledTimes(2)
@@ -380,13 +440,13 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
     await user.click(screen.getByRole('button', { name: 'Close settings' }))
 
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Stream this')
+    await user.type(getComposer(), 'Stream this')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
-    expect(screen.getByText('Assistant is responding...')).toBeInTheDocument()
+    expect(screen.getByText(/Responding/)).toBeInTheDocument()
 
     await waitFor(() => {
-      expect(screen.queryByText('Assistant is responding...')).not.toBeInTheDocument()
+      expect(screen.queryByText(/Responding/)).not.toBeInTheDocument()
       expect(
         screen.getByText(
           'Streaming response from provider with multiple chunks for smoother rendering.',
@@ -434,7 +494,7 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
     await user.click(screen.getByRole('button', { name: 'Close settings' }))
 
-    await user.type(screen.getByRole('textbox', { name: 'Message composer' }), 'Say hello')
+    await user.type(getComposer(), 'Say hello')
     await user.click(screen.getByRole('button', { name: 'Send message' }))
 
     await waitFor(() => {
@@ -447,5 +507,91 @@ describe('App shell', () => {
 
     const requestUrl = String(fetchSpy.mock.calls[0]?.[0] ?? '')
     expect(requestUrl).toContain(':streamGenerateContent')
+  })
+
+  it('creates, reopens, and deletes a text-selection branch', async () => {
+    const user = userEvent.setup()
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: 'Branch reply' } }],
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    )
+
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Open settings' }))
+    await user.type(screen.getByLabelText('API key'), 'sk-branch-key')
+    await user.click(screen.getByRole('button', { name: 'Save provider settings' }))
+    await user.click(screen.getByRole('button', { name: 'Close settings' }))
+
+    const assistantMessage = screen.getByText(/Welcome to Better Chat/i)
+    const selectedText = 'Better Chat'
+
+    vi.spyOn(window, 'getSelection').mockReturnValue({
+      toString: () => selectedText,
+      anchorNode: assistantMessage.firstChild,
+      rangeCount: 1,
+      getRangeAt: () => ({
+        getBoundingClientRect: () => ({
+          top: 30,
+          left: 30,
+          width: 20,
+          height: 20,
+          right: 50,
+          bottom: 50,
+          x: 30,
+          y: 30,
+          toJSON: () => ({}),
+        }),
+      }),
+    } as unknown as Selection)
+
+    fireEvent.mouseUp(assistantMessage)
+
+    await user.click(screen.getByRole('button', { name: '+ Create New Branch Here' }))
+
+    const branchDialog = screen.getByRole('dialog', { name: 'Branch details' })
+    expect(branchDialog).toBeInTheDocument()
+    expect(
+      within(branchDialog).getByText(/Branch context from highlighted text/i),
+    ).toBeInTheDocument()
+    expect(within(branchDialog).getByText(new RegExp(selectedText, 'i'))).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Branch notes' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Toggle branch notes' }))
+    expect(screen.getByRole('textbox', { name: 'Branch notes' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Expand branch' }))
+    expect(screen.getByRole('button', { name: 'Collapse branch' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Collapse branch' }))
+
+    await user.type(screen.getByRole('textbox', { name: 'Branch message' }), 'Branch prompt')
+    await user.click(screen.getByRole('button', { name: 'Send branch message' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Branch reply')).toBeInTheDocument()
+      expect(fetchSpy).toHaveBeenCalled()
+    })
+
+    await user.type(screen.getByRole('textbox', { name: 'Branch notes' }), 'My saved note')
+
+    await user.click(screen.getByRole('button', { name: 'Close branch' }))
+    expect(screen.queryByRole('dialog', { name: 'Branch details' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Open branch/i }))
+    expect(screen.getByRole('dialog', { name: 'Branch details' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Toggle branch notes' }))
+    expect(screen.getByRole('textbox', { name: 'Branch notes' })).toHaveValue('My saved note')
+    expect(screen.getByText('Branch reply')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Delete branch' }))
+    expect(screen.queryByRole('dialog', { name: 'Branch details' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Open branch/i })).not.toBeInTheDocument()
   })
 })

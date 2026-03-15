@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { readSseEvents, type SseEvent } from './sse-events'
+import {
+  readSseEvents,
+  type SseEvent,
+} from '../../../../src/features/providers/infrastructure/sse-events'
 
 const createSseResponse = (chunks: string[]): Response => {
   const encoder = new TextEncoder()

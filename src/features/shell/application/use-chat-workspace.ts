@@ -14,6 +14,7 @@ import {
 } from '../../settings/domain/reading-mode-settings'
 import {
   createDefaultProviderSettings,
+  setGlobalSystemPrompt,
   setActiveProvider,
   updateProviderConfiguration,
   type ProviderId,
@@ -51,6 +52,10 @@ type ChatWorkspaceAction =
   | { readonly type: 'settings/opened' }
   | { readonly type: 'settings/closed' }
   | { readonly type: 'reading-mode/toggled' }
+  | { readonly type: 'reading-mode/hide-top-bar-toggled' }
+  | { readonly type: 'reading-mode/hide-sidebar-toggled' }
+  | { readonly type: 'reading-mode/hide-composer-toggled' }
+  | { readonly type: 'reading-mode/hide-user-messages-toggled' }
   | {
       readonly type: 'reading-scheme/selected'
       readonly schemeId: ReadingSchemeId
@@ -68,6 +73,10 @@ type ChatWorkspaceAction =
       readonly type: 'provider/model-changed'
       readonly providerId: ProviderId
       readonly model: string
+    }
+  | {
+      readonly type: 'provider/global-system-prompt-changed'
+      readonly value: string
     }
   | { readonly type: 'provider/saved' }
   | { readonly type: 'conversation/created' }
@@ -223,6 +232,42 @@ const reducer = (
         readingModeSettings: toggleReadingMode(state.readingModeSettings),
       }
 
+    case 'reading-mode/hide-top-bar-toggled':
+      return {
+        ...state,
+        readingModeSettings: {
+          ...state.readingModeSettings,
+          hideTopBar: !state.readingModeSettings.hideTopBar,
+        },
+      }
+
+    case 'reading-mode/hide-sidebar-toggled':
+      return {
+        ...state,
+        readingModeSettings: {
+          ...state.readingModeSettings,
+          hideSidebar: !state.readingModeSettings.hideSidebar,
+        },
+      }
+
+    case 'reading-mode/hide-composer-toggled':
+      return {
+        ...state,
+        readingModeSettings: {
+          ...state.readingModeSettings,
+          hideComposer: !state.readingModeSettings.hideComposer,
+        },
+      }
+
+    case 'reading-mode/hide-user-messages-toggled':
+      return {
+        ...state,
+        readingModeSettings: {
+          ...state.readingModeSettings,
+          hideUserMessages: !state.readingModeSettings.hideUserMessages,
+        },
+      }
+
     case 'reading-scheme/selected':
       return {
         ...state,
@@ -280,6 +325,22 @@ const reducer = (
           ...currentProvider,
           model: action.model,
         },
+      )
+
+      return {
+        ...state,
+        providerDraftSettings,
+        hasUnsavedProviderChanges: !areProviderSettingsEqual(
+          providerDraftSettings,
+          state.providerSettings,
+        ),
+      }
+    }
+
+    case 'provider/global-system-prompt-changed': {
+      const providerDraftSettings = setGlobalSystemPrompt(
+        state.providerDraftSettings,
+        action.value,
       )
 
       return {
@@ -463,9 +524,14 @@ interface UseChatWorkspaceResult {
   readonly closeSettings: () => void
   readonly toggleReadingMode: () => void
   readonly selectReadingScheme: (schemeId: ReadingSchemeId) => void
+  readonly toggleReadingHideTopBar: () => void
+  readonly toggleReadingHideSidebar: () => void
+  readonly toggleReadingHideComposer: () => void
+  readonly toggleReadingHideUserMessages: () => void
   readonly selectProvider: (providerId: ProviderId) => void
   readonly changeApiKey: (providerId: ProviderId, apiKey: string) => void
   readonly changeModel: (providerId: ProviderId, model: string) => void
+  readonly changeGlobalSystemPrompt: (value: string) => void
   readonly saveProviderSettings: () => void
   readonly createConversation: () => void
   readonly selectConversation: (conversationId: string) => void
@@ -514,6 +580,22 @@ export const useChatWorkspace = (
     dispatch({ type: 'reading-mode/toggled' })
   }, [])
 
+  const onToggleReadingHideTopBar = useCallback(() => {
+    dispatch({ type: 'reading-mode/hide-top-bar-toggled' })
+  }, [])
+
+  const onToggleReadingHideSidebar = useCallback(() => {
+    dispatch({ type: 'reading-mode/hide-sidebar-toggled' })
+  }, [])
+
+  const onToggleReadingHideComposer = useCallback(() => {
+    dispatch({ type: 'reading-mode/hide-composer-toggled' })
+  }, [])
+
+  const onToggleReadingHideUserMessages = useCallback(() => {
+    dispatch({ type: 'reading-mode/hide-user-messages-toggled' })
+  }, [])
+
   const selectReadingScheme = useCallback((schemeId: ReadingSchemeId) => {
     dispatch({ type: 'reading-scheme/selected', schemeId })
   }, [])
@@ -536,6 +618,10 @@ export const useChatWorkspace = (
       providerId,
       model,
     })
+  }, [])
+
+  const changeGlobalSystemPrompt = useCallback((value: string) => {
+    dispatch({ type: 'provider/global-system-prompt-changed', value })
   }, [])
 
   const saveProviderSettings = useCallback(() => {
@@ -696,9 +782,14 @@ export const useChatWorkspace = (
     closeSettings,
     toggleReadingMode: onToggleReadingMode,
     selectReadingScheme,
+    toggleReadingHideTopBar: onToggleReadingHideTopBar,
+    toggleReadingHideSidebar: onToggleReadingHideSidebar,
+    toggleReadingHideComposer: onToggleReadingHideComposer,
+    toggleReadingHideUserMessages: onToggleReadingHideUserMessages,
     selectProvider,
     changeApiKey,
     changeModel,
+    changeGlobalSystemPrompt,
     saveProviderSettings,
     createConversation,
     selectConversation,

@@ -17,6 +17,7 @@ export interface ProviderConfiguration {
 
 export interface ProviderSettings {
   readonly activeProvider: ProviderId
+  readonly globalSystemPrompt: string
   readonly configurations: Record<ProviderId, ProviderConfiguration>
 }
 
@@ -66,6 +67,7 @@ export const providerCatalog = providerIds.map((providerId) =>
 
 export const createDefaultProviderSettings = (): ProviderSettings => ({
   activeProvider: 'openai',
+  globalSystemPrompt: '',
   configurations: {
     openai: {
       apiKey: '',
@@ -91,6 +93,14 @@ export const setActiveProvider = (
 ): ProviderSettings => ({
   ...providerSettings,
   activeProvider: providerId,
+})
+
+export const setGlobalSystemPrompt = (
+  providerSettings: ProviderSettings,
+  globalSystemPrompt: string,
+): ProviderSettings => ({
+  ...providerSettings,
+  globalSystemPrompt,
 })
 
 export const updateProviderConfiguration = (

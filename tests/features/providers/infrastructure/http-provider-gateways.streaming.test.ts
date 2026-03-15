@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createUserMessage } from '../../chat/domain/chat-message'
-import { createHttpProviderGatewayRegistry } from './http-provider-gateways'
+import { createUserMessage } from '../../../../src/features/chat/domain/chat-message'
+import { createHttpProviderGatewayRegistry } from '../../../../src/features/providers/infrastructure/http-provider-gateways'
 
 const createSseResponse = (events: string[]): Response => {
   const encoder = new TextEncoder()
@@ -25,6 +25,7 @@ const createRequest = () => ({
   apiKey: 'test-key',
   model: 'test-model',
   messages: [createUserMessage('Hello')],
+  systemPrompt: 'You are concise.',
 })
 
 describe('http provider streaming gateways', () => {
@@ -51,10 +52,12 @@ describe('http provider streaming gateways', () => {
 
     const body = String((fetchSpy.mock.calls[0]?.[1] as RequestInit).body)
     expect(body).toContain('"stream":true')
+    expect(body).toContain('"role":"system"')
+    expect(body).toContain('You are concise.')
   })
 
   it('streams Anthropic text_delta events', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       createSseResponse([
         'event: content_block_delta\n',
         'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hi"}}\n\n',
@@ -70,6 +73,10 @@ describe('http provider streaming gateways', () => {
     expect(result).toBe('Hi there')
     expect(onContent).toHaveBeenNthCalledWith(1, 'Hi')
     expect(onContent).toHaveBeenNthCalledWith(2, 'Hi there')
+
+    const body = String((fetchSpy.mock.calls[0]?.[1] as RequestInit).body)
+    expect(body).toContain('"stream":true')
+    expect(body).toContain('"system":"You are concise."')
   })
 
   it('uses Gemini SSE endpoint and x-goog-api-key header', async () => {
@@ -93,5 +100,6 @@ describe('http provider streaming gateways', () => {
 
     expect(requestUrl).toContain(':streamGenerateContent?alt=sse')
     expect((requestInit.headers as Record<string, string>)['x-goog-api-key']).toBe('test-key')
+    expect(String(requestInit.body)).toContain('"systemInstruction"')
   })
 })
