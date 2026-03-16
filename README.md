@@ -1,4 +1,4 @@
-# Better Chat UI
+# Better Chat UI - [Web Interface](https://zedlabs.github.io/better-chat/)
 
 Better Chat UI is a local-first, bring-your-own-key chat workspace for people who want more control than typical AI chat apps provide.
 
